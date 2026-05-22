@@ -1,0 +1,500 @@
+
+================================================================================
+LLM CALL 1 | 2026-05-22T11:11:58 | provider=huggingface | model=Qwen/Qwen3.5-4B
+================================================================================
+[SYSTEM PROMPT]
+You are Stage 1 of a neurosymbolic logic parser.
+
+Your job:
+Convert raw English premises into clean Controlled Natural Language (CNL).
+
+You must NOT solve the problem.
+You must NOT infer new facts.
+You must preserve logical direction, quantifiers, negation, modality, and named entities.
+
+Allowed kind_hint values:
+FACT, EXISTS, FORALL, RULE, ONLY_IF_RULE, IFF, NON_IF_RULE, OBLIGATION_RULE, META, UNKNOWN
+
+Rules:
+1. Rewrite conditionals as: If [condition], then [consequence].
+2. Preserve "only if" direction. "A only if B" means A -> B.
+3. Preserve "if and only if" as IFF.
+4. Treat "not necessarily" as modal uncertainty, not classical NOT.
+5. Normalize simple negation:
+   - without housing -> NOT has housing
+   - fail to maintain GPA -> NOT maintain GPA
+   - cannot participate -> NOT participate
+6. For nested logic, use kind_hint META and keep the nested statement literal.
+7. Do not create predicate names yet.
+8. Return JSON only. No explanation text.
+
+Return this exact JSON shape:
+{
+  "statements": [
+    {
+      "premise_id": "P1",
+      "original": "...",
+      "kind_hint": "RULE",
+      "cnl": "If ..., then ...",
+      "risk_flags": [],
+      "if_part": "...",
+      "then_part": "...",
+      "body": null
+    }
+  ]
+}
+
+
+[USER PROMPT]
+Rewrite these premises into CNL:
+P1: Every scholarship recipient receives priority housing.
+P2: Students without housing cannot participate in the Quantum Physics lab.
+P3: Mina is a scholarship recipient.
+
+[MODEL OUTPUT]
+Thinking Process:
+
+1.  **Analyze the Request:**
+    *   Role: Stage 1 of a neurosymbolic logic parser.
+    *   Task: Convert raw English premises into Clean Controlled Natural Language (CNL).
+    *   Constraints:
+        *   Do NOT solve the problem.
+        *   Do NOT infer new facts.
+        *   Preserve logical direction, quantifiers, negation, modality, and named entities.
+        *   Allowed `kind_hint` values: FACT, EXISTS, FORALL, RULE, ONLY_IF_RULE, IFF, NON_IF_RULE, OBLIGATION_RULE, META, UNKNOWN.
+        *   Rules for rewriting:
+            1.  Conditionals: "If [condition], then [consequence]".
+            2.  "Only if": "A only if B" -> A -> B.
+            3.  "If and only if": IFF.
+            4.  "Not necessarily": Modal uncertainty (not classical NOT).
+            5.  Negation normalization (e.g., "without housing" -> "NOT has housing").
+            6.  Nested logic: Use `kind_hint` META, keep literal.
+            7.  Do not create predicate names yet (keep natural language structure).
+            8.  Return JSON only.
+    *   Input Premises:
+        *   P1: Every scholarship recipient receives priority housing.
+        *   P2: Students without housing cannot participate in the Quantum Physics lab.
+        *   P3: Mina is a scholarship recipient.
+
+2.  **Analyze P1: "Every scholarship recipient receives priority housing."**
+    *   Type: Universal quantification ("Every").
+    *   Structure: For all x, if x is a scholarship recipient, then x receives priority housing.
+    *   CNL Draft: If a person is a scholarship recipient, then they receive priority housing.
+    *   Kind Hint: This is a general rule. `RULE` seems appropriate. `FORALL` might be used for the quantifier, but the prompt asks for CNL representation. Usually, "Every" implies a universal rule. Let's look at the example structure provided in the prompt instructions: `{"premise_id": "P1", "original": "...", "kind_hint": "RULE", ...}`.
+    *   Negation check: None.
+    *   Direction: If recipient -> receives housing.
+    *   CNL: If a person is a scholarship recipient, then they receive priority housing.
+
+3.  **Analyze P2: "Students without housing cannot participate in the Quantum Physics lab."**
+    *   Type: Universal quantification (implied "Students").
+    *   Structure: For all x, if x is a student without housing, then x cannot participate in the Quantum Physics lab.
+    *   Negation normalization: "without housing" -> "NOT has housing". "cannot participate" -> "NOT participate".
+    *   CNL Draft: If a student does not have housing, then they cannot participate in the Quantum Physics lab.
+    *   Kind Hint: `RULE`.
+    *   Risk Flags: None obvious.
+    *   If Part: If a student does not have housing.
+    *   Then Part: then they cannot participate in the Quantum Physics lab.
+
+4.  **Analyze P3: "Mina is a scholarship recipient."**
+    *   Type: Existential fact about a specific entity.
+    *   Structure: Mina is a scholarship recipient.
+    *   CNL Draft: Mina is a scholarship recipient.
+    *   Kind Hint: `FACT` (since it's a specific fact about a named entity, not a general rule).
+    *   If Part: N/A (or empty).
+    *   Then Part: N/A (or empty).
+    *   Body: null.
+
+5.  **Refining CNL based on constraints:**
+    *   Constraint 1: Rewrite conditionals as: If [condition], then [consequence].
+    *   Constraint 5: Normalize simple negation.
+        *   "without housing" -> "NOT has housing".
+        *   "cannot participate" -> "NOT participate".
+    *   Constraint 7: Do not create predicate names yet. (Keep natural language phrasing).
+    *   Constraint 8: Return JSON only.
+
+6.  **Drafting JSON:**
+
+    *   P1:
+        *   `premise_id`: "P1"
+        *   `original`: "Every scholarship recipient receives priority housing."
+        *   `kind_hint`: "RULE" (Universal rule)
+        *   `cnl`: "If a person is a scholarship recipient, then they receive priority housing."
+        *   `risk_flags`: []
+        *   `if_part`: "a person is a scholarship recipient"
+        *   `then_part`: "they receive priority housing"
+        *   `body`: null
+
+    *   P2:
+        *   `premise_id`: "P2"
+        *   `original`: "Students without housing cannot participate in the Quantum Physics lab."
+        *   `kind_hint`: "RULE"
+        *   `cnl`: "If a student does not have housing, then they cannot participate in the Quantum Physics lab."
+        *   `risk_flags`: []
+        *   `if_part`: "a student does not have housing"
+        *   `then_part`: "they cannot participate in the Quantum Physics lab"
+        *   `body`: null
+
+    *   P3:
+        *   `premise_id`: "P3"
+        *   `original`: "Mina is a scholarship recipient."
+        *   `kind_hint`: "FACT"
+        *   `cnl`: "Mina is a scholarship recipient."
+        *   `risk_flags`: []
+        *   `if_part`: "" (or null, but structure suggests string)
+        *   `then_part`: ""
+        *   `body`: null
+
+    *Wait, looking at Constraint 5 again:*
+    "without housing -> NOT has housing"
+    "cannot participate -> NOT participate"
+    So P2 CNL should reflect this normalization.
+    "If a student NOT has housing, then they NOT participate in the Quantum Physics lab."
+    Actually, standard English "does not have" is often preferred over "NOT has" in CNL unless strict symbolic logic is required. However, the instruction says "Normalize simple negation: without housing -> NOT has housing". I should follow this strictly.
+    So: "If a student NOT has housing, then they NOT participate in the Quantum Physics lab."
+
+    *Wait, looking at Constraint 1:*
+    "Rewrite conditionals as: If [condition], then [consequence]."
+    So P1 and P2 need "If ... then ...".
+    P3 is a fact, so it doesn't need "If ... then ...".
+
+    *Wait, looking at Constraint 7:*
+    "Do not create predicate names yet."
+    This means I shouldn't convert "is a scholarship recipient" into `scholarship_recipient(x)`. I should keep the text.
+
+    *Wait, looking at P3:*
+    Is it a FACT or EXISTS?
+    "Mina is a scholarship recipient." is a specific instance. `FACT` is appropriate.
+    Does it need `if_part` and `then_part`? The schema example shows them. For a fact, they might be empty or null. I will leave them empty strings or null to match the structure, but since it's a fact, the conditional structure doesn't apply. I'll set them to empty strings or null. The example shows `body: null`. I will follow the example structure.
+
+    *Wait, looking at P1:*
+    "Every scholarship recipient..." -> Universal.
+    CNL: "If a person is a scholarship recipient, then they receive priority housing."
+
+    *Wait, looking at P2:*
+    "Students without housing..." -> Universal.
+    CNL: "If a student NOT has housing, then they NOT participate in the Quantum Physics lab."
+
+    *Wait, looking at P3:*
+    "Mina is a scholarship recipient." -> Fact.
+    CNL: "Mina is a scholarship recipient."
+
+    *Refining Negation:*
+    Instruction: "without housing -> NOT has housing".
+    Instruction: "cannot participate -> NOT participate".
+    So P2: "If a student NOT has housing, then they NOT participate in the Quantum Physics lab."
+
+    *Refining P1:*
+    "Every scholarship recipient receives priority housing."
+    CNL: "If a person is a scholarship recipient, then they receive priority housing."
+
+    *Refining P3:*
+    "Mina is a scholarship recipient."
+    CNL: "Mina is a scholarship recipient."
+
+    *JSON Structure:*
+    Must match the provided shape exactly.
+    `statements`: [ { ... } ]
+
+    *Risk Flags:*
+    None specified, so empty list.
+
+    *Kind Hint:*
+    P1: RULE (Universal rule).
+    P2: RULE (Universal rule).
+    P3: FACT (Specific fact).
+
+    *Wait, one more check on P1:*
+    "Every scholarship recipient receives priority housing."
+    Is this a rule or a fact? It's a general rule about the system. `RULE
+[END LLM CALL 1]
+
+================================================================================
+LLM CALL 1 | 2026-05-22T11:19:36 | provider=huggingface | model=Qwen/Qwen3.5-4B
+================================================================================
+[SYSTEM PROMPT]
+You are Stage 1 of a neurosymbolic logic parser.
+
+Your job:
+Convert raw English premises into clean Controlled Natural Language (CNL).
+
+You must NOT solve the problem.
+You must NOT infer new facts.
+You must preserve logical direction, quantifiers, negation, modality, and named entities.
+
+Allowed kind_hint values:
+FACT, EXISTS, FORALL, RULE, ONLY_IF_RULE, IFF, NON_IF_RULE, OBLIGATION_RULE, META, UNKNOWN
+
+Rules:
+1. Rewrite conditionals as: If [condition], then [consequence].
+2. Preserve "only if" direction. "A only if B" means A -> B.
+3. Preserve "if and only if" as IFF.
+4. Treat "not necessarily" as modal uncertainty, not classical NOT.
+5. Normalize simple negation:
+   - without housing -> NOT has housing
+   - fail to maintain GPA -> NOT maintain GPA
+   - cannot participate -> NOT participate
+6. For nested logic, use kind_hint META and keep the nested statement literal.
+7. Do not create predicate names yet.
+8. Return JSON only. No explanation text.
+
+Return this exact JSON shape:
+{
+  "statements": [
+    {
+      "premise_id": "P1",
+      "original": "...",
+      "kind_hint": "RULE",
+      "cnl": "If ..., then ...",
+      "risk_flags": [],
+      "if_part": "...",
+      "then_part": "...",
+      "body": null
+    }
+  ]
+}
+
+
+[USER PROMPT]
+Rewrite these premises into CNL:
+P1: Models trained with large datasets achieve high accuracy.
+P2: If a model uses a powerful GPU, it can process large datasets quickly.
+P3: A model that achieves high accuracy and processes data quickly requires extensive hyperparameter tuning.
+P4: Only models with extensive hyperparameter tuning perform consistently on new data.
+P5: The AlphaNet model achieves high accuracy.
+P6: The AlphaNet model processes data quickly.
+
+[MODEL OUTPUT]
+Thinking Process:
+
+1.  **Analyze the Request:**
+    *   Role: Stage 1 of a neurosymbolic logic parser.
+    *   Task: Convert raw English premises into Clean Controlled Natural Language (CNL).
+    *   Constraints:
+        *   Do NOT solve the problem.
+        *   Do NOT infer new facts.
+        *   Preserve logical direction, quantifiers, negation, modality, and named entities.
+        *   Allowed `kind_hint` values: FACT, EXISTS, FORALL, RULE, ONLY_IF_RULE, IFF, NON_IF_RULE, OBLIGATION_RULE, META, UNKNOWN.
+        *   Rules for rewriting:
+            1.  Conditionals -> "If [condition], then [consequence]".
+            2.  "Only if" -> A only if B means A -> B.
+            3.  "If and only if" -> IFF.
+            4.  "Not necessarily" -> modal uncertainty (not classical NOT).
+            5.  Normalize simple negation (e.g., "without housing" -> "NOT has housing").
+            6.  Nested logic -> `kind_hint` META, keep literal.
+            7.  Do not create predicate names yet.
+            8.  Return JSON only.
+    *   Input: 6 premises (P1 to P6).
+    *   Output Format: Specific JSON structure with `statements` array containing `premise_id`, `original`, `kind_hint`, `cnl`, `risk_flags`, `if_part`, `then_part`, `body`.
+
+2.  **Analyze Each Premise:**
+
+    *   **P1:** "Models trained with large datasets achieve high accuracy."
+        *   Type: General statement about models. Implies a universal quantification over models.
+        *   Logic: For all models, if trained with large datasets, then achieve high accuracy.
+        *   CNL Draft: If a model is trained with large datasets, then it achieves high accuracy.
+        *   Kind Hint: RULE (conditional).
+        *   Risk Flags: None obvious.
+
+    *   **P2:** "If a model uses a powerful GPU, it can process large datasets quickly."
+        *   Type: Conditional.
+        *   Logic: If uses powerful GPU -> can process large datasets quickly.
+        *   CNL Draft: If a model uses a powerful GPU, then it can process large datasets quickly.
+        *   Kind Hint: RULE.
+
+    *   **P3:** "A model that achieves high accuracy and processes data quickly requires extensive hyperparameter tuning."
+        *   Type: Conditional/Requirement.
+        *   Logic: If (achieves high accuracy AND processes data quickly) -> requires extensive hyperparameter tuning.
+        *   CNL Draft: If a model achieves high accuracy and processes data quickly, then it requires extensive hyperparameter tuning.
+        *   Kind Hint: RULE.
+
+    *   **P4:** "Only models with extensive hyperparameter tuning perform consistently on new data."
+        *   Type: "Only if" statement.
+        *   Logic: "Only models with extensive hyperparameter tuning perform consistently on new data."
+        *   Standard interpretation: "Perform consistently on new data" -> "Has extensive hyperparameter tuning". (A only if B = A -> B).
+        *   CNL Draft: If a model performs consistently on new data, then it has extensive hyperparameter tuning.
+        *   Kind Hint: RULE.
+
+    *   **P5:** "The AlphaNet model achieves high accuracy."
+        *   Type: Fact/Existence.
+        *   Logic: AlphaNet achieves high accuracy.
+        *   CNL Draft: The AlphaNet model achieves high accuracy.
+        *   Kind Hint: FACT.
+
+    *   **P6:** "The AlphaNet model processes data quickly."
+        *   Type: Fact/Existence.
+        *   Logic: AlphaNet processes data quickly.
+        *   CNL Draft: The AlphaNet model processes data quickly.
+        *   Kind Hint: FACT.
+
+3.  **Refine CNL and Structure:**
+    *   Ensure "If... then..." structure for conditionals.
+    *   Ensure "Only if" is converted correctly (A only if B -> A -> B).
+    *   Ensure no new predicates are created (use natural language phrases).
+    *   Ensure JSON format is exact.
+
+    *   *P1:* "If a model is trained with large datasets, then it achieves high accuracy."
+    *   *P2:* "If a model uses a powerful GPU, then it can process large datasets quickly."
+    *   *P3:* "If a model achieves high accuracy and processes data quickly, then it requires extensive hyperparameter tuning."
+    *   *P4:* "If a model performs consistently on new data, then it has extensive hyperparameter tuning." (Note: "Only models with X do Y" -> Y -> X).
+    *   *P5:* "The AlphaNet model achieves high accuracy."
+    *   *P6:* "The AlphaNet model processes data quickly."
+
+    *   *Risk Flags:* Check for negation, modality, etc. None present in input.
+    *   *Body:* null (as per schema).
+
+4.  **Draft JSON:**
+    *   Check keys: `statements` (array), `premise_id`, `original`, `kind_hint`, `cnl`, `risk_flags` (array), `if_part`, `then_part`, `body`.
+    *   For FACTs, `if_part` and `then_part` might be null or empty, but the schema implies they exist. I will split the CNL into if/then where applicable, or leave them empty/null if it's a pure fact. However, looking at the schema example provided in the prompt:
+        ```json
+        {
+          "premise_id": "P1",
+          "original": "...",
+          "kind_hint": "RULE",
+          "cnl": "If ..., then ...",
+          "risk_flags": [],
+          "if_part": "...",
+          "then_part": "...",
+          "body": null
+        }
+        ```
+        For FACTs, `if_part` and `then_part` are less meaningful, but I should probably extract the condition/consequence if possible, or leave them as the CNL content split. However, since P5/P6 are facts, they don't have an if/then structure. I will set `if_part` and `then_part` to null or empty strings to avoid errors, or just reflect the CNL split. Given the instruction "If [condition], then [consequence]", for facts, there is no condition. I will set `if_part` and `then_part` to null or empty strings to be safe, or just leave the `cnl` as the fact. Let's look at the instruction: "Return this exact JSON shape".
+        I will split `cnl` into `if_part` and `then_part` for rules. For facts, I will set `if_part` and `then_part` to null or empty string. Actually, usually in these tasks, if it's a fact, `if_part` is null.
+        Wait, P4 "Only models with extensive hyperparameter tuning perform consistently on new data."
+        Logic: Perform consistently -> Has tuning.
+        CNL: If a model performs consistently on new data, then it has extensive hyperparameter tuning.
+
+    *   Let's check the `kind_hint` for P1-P4. They are rules. P5-P6 are facts.
+    *   P1: "Models trained with large datasets achieve high accuracy." -> "If a model is trained with large datasets, then it achieves high accuracy." (RULE)
+    *   P2: "If a model uses a powerful GPU, it can process large datasets quickly." -> "If a model uses a powerful GPU, then it can process large datasets quickly." (RULE)
+    *   P3: "A model that achieves high accuracy and processes data quickly requires extensive hyperparameter tuning." -> "If a model achieves high accuracy and processes data quickly, then it requires extensive hyperparameter tuning." (RULE)
+    *   P4: "Only models with extensive hyperparameter tuning perform consistently on new data." -> "If a model performs consistently on new data, then it has extensive hyperparameter tuning." (RULE)
+    *   P5: "The AlphaNet model achieves high accuracy." -> "The AlphaNet model achieves high accuracy." (FACT)
+    *   P6: "The AlphaNet model processes data quickly." -> "The AlphaNet model processes data quickly." (FACT)
+
+    *   Wait, P4 "Only models with extensive hyperparameter tuning perform consistently on new data."
+        Standard logic: "Only A do B" means "If B then A".
+        So: If a model performs consistently on new data, then it has extensive hyperparameter tuning.
+        This matches the rule transformation.
+
+    *   Risk flags: None detected.
+    *   Body: null.
+
+    *   JSON Structure Check:
+        ```json
+        {
+          "statements": [
+            {
+              "premise_id": "P1",
+              "original": "...",
+              "kind_hint": "...",
+              "cnl": "...",
+              "risk_flags": [],
+              "if_part": "...",
+             
+[END LLM CALL 1]
+
+================================================================================
+LLM CALL 2 | 2026-05-22T11:24:18 | provider=huggingface | model=Qwen/Qwen3.5-4B
+================================================================================
+[SYSTEM PROMPT]
+You are Stage 1 of a neurosymbolic logic parser.
+
+Your job:
+Convert raw English premises into clean Controlled Natural Language (CNL).
+
+You must NOT solve the problem.
+You must NOT infer new facts.
+You must preserve logical direction, quantifiers, negation, modality, and named entities.
+
+Allowed kind_hint values:
+FACT, EXISTS, FORALL, RULE, ONLY_IF_RULE, IFF, NON_IF_RULE, OBLIGATION_RULE, META, UNKNOWN
+
+Rules:
+1. Rewrite conditionals as: If [condition], then [consequence].
+2. Preserve "only if" direction. "A only if B" means A -> B.
+3. Preserve "if and only if" as IFF.
+4. Treat "not necessarily" as modal uncertainty, not classical NOT.
+5. Normalize simple negation:
+   - without housing -> NOT has housing
+   - fail to maintain GPA -> NOT maintain GPA
+   - cannot participate -> NOT participate
+6. For nested logic, use kind_hint META and keep the nested statement literal.
+7. Do not create predicate names yet.
+8. Return JSON only. No explanation text.
+
+Return this exact JSON shape:
+{
+  "statements": [
+    {
+      "premise_id": "P1",
+      "original": "...",
+      "kind_hint": "RULE",
+      "cnl": "If ..., then ...",
+      "risk_flags": [],
+      "if_part": "...",
+      "then_part": "...",
+      "body": null
+    }
+  ]
+}
+
+
+[USER PROMPT]
+Rewrite these premises into CNL:
+P1: Every subject contains knowledge.
+P2: If a student has knowledge of a subject, they can explain it to their friends.
+P3: If a student explains a subject to their friends and the friends understand it, the student has mastered the subject.
+P4: If a student masters a subject, they can earn an A or A+.
+P5: If a student earns at least five A or A+ grades, they can receive a scholarship.
+P6: Tuấn has earned three A grades.
+P7: Tuấn has not earned any additional A+ grades.
+P8: If a student earns an A in a subject, they must have mastered the subject.
+P9: If Tuấn's friends do not understand a subject, Tuấn has not mastered it.
+P10: If a student cannot explain a subject, they do not have knowledge of it.
+
+[MODEL OUTPUT]
+Thinking Process:
+
+1.  **Analyze the Request:**
+    *   Role: Stage 1 of a neurosymbolic logic parser.
+    *   Task: Convert raw English premises into Clean Controlled Natural Language (CNL).
+    *   Constraints:
+        *   Do NOT solve the problem.
+        *   Do NOT infer new facts.
+        *   Preserve logical direction, quantifiers, negation, modality, and named entities.
+        *   Allowed `kind_hint` values: FACT, EXISTS, FORALL, RULE, ONLY_IF_RULE, IFF, NON_IF_RULE, OBLIGATION_RULE, META, UNKNOWN.
+        *   Rules:
+            1.  Rewrite conditionals as: If [condition], then [consequence].
+            2.  Preserve "only if" direction (A only if B -> A -> B).
+            3.  Preserve "if and only if" as IFF.
+            4.  Treat "not necessarily" as modal uncertainty (not classical NOT).
+            5.  Normalize simple negation (e.g., "without housing" -> "NOT has housing").
+            6.  For nested logic, use `kind_hint` META and keep the nested statement literal.
+            7.  Do not create predicate names yet.
+            8.  Return JSON only. No explanation text.
+    *   Input: 10 premises (P1 to P10).
+    *   Output Format: Specific JSON structure with `statements` array containing `premise_id`, `original`, `kind_hint`, `cnl`, `risk_flags`, `if_part`, `then_part`, `body`.
+
+2.  **Analyze Each Premise:**
+
+    *   **P1: Every subject contains knowledge.**
+        *   Type: Universal quantification.
+        *   Logic: For all x (Subject), x contains knowledge.
+        *   CNL: "If a subject is a subject, then it contains knowledge." (Or "Every subject contains knowledge" -> "For all subjects, they contain knowledge").
+        *   Kind Hint: `FORALL` or `RULE`. Since it's a general rule about subjects, `RULE` or `FORALL` works. Given the instruction "Rewrite conditionals as: If [condition], then [consequence]", I should frame it as a rule. However, "Every subject contains knowledge" is a universal fact. Let's use `FORALL` or `RULE`. The prompt says "Rewrite conditionals", but P1 is a universal statement. I will treat it as a general rule.
+        *   Negation check: None.
+        *   Draft CNL: "If a subject is a subject, then it contains knowledge."
+        *   Risk Flags: None.
+
+    *   **P2: If a student has knowledge of a subject, they can explain it to their friends.**
+        *   Type: Conditional.
+        *   Logic: If (student has knowledge of subject) -> (student can explain it to friends).
+        *   CNL: "If a student has knowledge of a subject, then they can explain it to their friends."
+        *   Kind Hint: `RULE`.
+        *   If Part: "a student has knowledge of a subject"
+        *   Then Part: "they can explain it to their friends"
+
+    *   **P3: If a student explains a subject to their friends and the friends understand it, the student has mastered the subject.**
+        *   Type: Conditional.
+        *   Logic: If (student explains subject to friends AND friends understand it) -> (student has mastered subject).
+        *   CNL: "If 

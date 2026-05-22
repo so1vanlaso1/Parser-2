@@ -1,0 +1,1 @@
+{"id": "logic-0142-q0", "ok": false, "elapsed_seconds": 302.96, "error": "1 validation error for Stage1Output\nstatements\n  Field required [type=missing, input_value={'premise_id': 'P1', 'ori...t': '...', 'body': None}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing"}

@@ -1,0 +1,12 @@
+pydantic
+sentence-transformers
+numpy
+python-dotenv
+pytest
+torch
+torchvision
+transformers
+accelerate
+bitsandbytes
+pillow
+ollama

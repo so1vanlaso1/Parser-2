@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from importlib import metadata
 from pathlib import Path
+import re
 from threading import Thread
 from typing import Protocol
 
@@ -113,13 +115,21 @@ class HuggingFaceChatModel:
             user_prompt,
         )
 
-        inputs = self.processor.apply_chat_template(
-            messages,
-            add_generation_prompt=True,
-            tokenize=True,
-            return_dict=True,
-            return_tensors="pt",
-        )
+        chat_template_kwargs = {
+            "conversation": messages,
+            "add_generation_prompt": True,
+            "tokenize": True,
+            "return_dict": True,
+            "return_tensors": "pt",
+            "enable_thinking": self.config.enable_thinking,
+        }
+        try:
+            inputs = self.processor.apply_chat_template(**chat_template_kwargs)
+        except TypeError as exc:
+            if "enable_thinking" not in str(exc):
+                raise
+            chat_template_kwargs.pop("enable_thinking")
+            inputs = self.processor.apply_chat_template(**chat_template_kwargs)
         inputs = inputs.to(self.model.device)
 
         resolved_temperature = self.config.temperature if temperature is None else temperature
@@ -191,8 +201,10 @@ class HuggingFaceChatModel:
             if not torch.cuda.is_available():
                 raise RuntimeError(
                     "4-bit Hugging Face loading uses bitsandbytes and requires a CUDA GPU. "
-                    "Set hf_load_in_4bit=False if you need CPU/full-precision loading."
+                    "Run with `--no-4bit` or set hf_load_in_4bit=False if you need "
+                    "CPU/full-precision loading."
                 )
+            self._validate_bitsandbytes()
 
             try:
                 from transformers import BitsAndBytesConfig
@@ -253,6 +265,30 @@ class HuggingFaceChatModel:
         except KeyError as exc:
             raise ValueError(f"Unsupported torch dtype: {value}") from exc
 
+    @staticmethod
+    def _validate_bitsandbytes() -> None:
+        minimum = "0.46.1"
+        try:
+            installed = metadata.version("bitsandbytes")
+        except metadata.PackageNotFoundError as exc:
+            raise RuntimeError(
+                "4-bit Hugging Face loading requires bitsandbytes>=0.46.1. "
+                "Install it with `pip install -U \"bitsandbytes>=0.46.1\"`, "
+                "or run `scripts/run_jsonl.py --no-4bit` to disable quantization."
+            ) from exc
+
+        if HuggingFaceChatModel._version_tuple(installed) < HuggingFaceChatModel._version_tuple(minimum):
+            raise RuntimeError(
+                f"4-bit Hugging Face loading requires bitsandbytes>={minimum}; "
+                f"found bitsandbytes=={installed}. Upgrade with "
+                f"`pip install -U \"bitsandbytes>={minimum}\"`, or run "
+                "`scripts/run_jsonl.py --no-4bit` to disable quantization."
+            )
+
+    @staticmethod
+    def _version_tuple(value: str) -> tuple[int, ...]:
+        return tuple(int(part) for part in re.findall(r"\d+", value)[:3])
+
 
 class OllamaChatModel:
     """Compatibility adapter for the previous Ollama backend."""
@@ -296,6 +332,7 @@ class OllamaChatModel:
                 messages=messages,
                 options=options,
                 format="json",
+                think=self.config.enable_thinking,
                 stream=True,
             ):
                 chunk = part.get("message", {}).get("content", "")
@@ -310,6 +347,7 @@ class OllamaChatModel:
             messages=messages,
             options=options,
             format="json",
+            think=self.config.enable_thinking,
         )
         text = response["message"]["content"]
         self.trace.write(text)

@@ -88,32 +88,41 @@ class LogicNode(BaseModel):
     source_premise_id: Optional[str] = None
     confidence: float = 1.0
 
+    # Lenient: shape problems are stored as warnings instead of raising
+    # ValueError.  The Stage 4 Validator surfaces them and Stage 5 Repair
+    # Loop can fix them before the pipeline fails.
+    _shape_warnings: list[str] = []
+
     @model_validator(mode="after")
     def check_shape(self):
+        """Lenient shape check — collects warnings instead of raising."""
+        warnings: list[str] = []
+
         if self.type == "atomic":
             if not self.name:
-                raise ValueError("atomic node requires name")
+                warnings.append("atomic node missing name")
             if not self.arguments:
-                raise ValueError("atomic node requires at least one argument")
+                warnings.append("atomic node missing arguments")
 
         if self.type in {"and", "or", "implies", "iff"}:
             if len(self.children) < 2:
-                raise ValueError(f"{self.type} node requires at least 2 children")
+                warnings.append(f"{self.type} node has {len(self.children)} children (need >=2)")
 
         if self.type == "not":
             if len(self.children) != 1:
-                raise ValueError("not node requires exactly 1 child")
+                warnings.append(f"not node has {len(self.children)} children (need 1)")
 
         if self.type in {"forall", "exists"}:
             if not self.variable:
-                raise ValueError(f"{self.type} node requires variable")
+                warnings.append(f"{self.type} node missing variable")
             if len(self.children) != 1:
-                raise ValueError(f"{self.type} node requires exactly 1 scoped child")
+                warnings.append(f"{self.type} node has {len(self.children)} children (need 1)")
 
         if self.type == "equation":
             if self.operator is None or self.left is None or self.right is None:
-                raise ValueError("equation node requires operator, left, and right")
+                warnings.append("equation node missing operator, left, or right")
 
+        object.__setattr__(self, "_shape_warnings", warnings)
         return self
 
 
@@ -152,3 +161,6 @@ class QuestionParse(BaseModel):
 class FullParseResult(BaseModel):
     premises: list[CompiledPremise]
     question: Optional[QuestionParse] = None
+    status: Literal["success", "partial_success", "failed"] = "success"
+    error: Optional[str] = None
+    question_parse_valid: bool = True

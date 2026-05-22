@@ -80,7 +80,6 @@ def main():
         log.error("Input file not found: %s", input_path)
         sys.exit(1)
 
-    # Load all lines.
     with input_path.open("r", encoding="utf-8") as f:
         all_lines = [line for line in f if line.strip()]
 
@@ -90,9 +89,8 @@ def main():
     lines_to_process = all_lines[start:end]
 
     log.info("Input: %s (%d total problems)", input_path.name, total)
-    log.info("Processing problems %d–%d (%d problems)", start, end - 1, len(lines_to_process))
+    log.info("Processing problems %d-%d (%d problems)", start, end - 1, len(lines_to_process))
 
-    # Initialize pipeline once (RAG embeddings cached).
     config = PipelineConfig(
         model_name=args.model,
         model_provider=args.provider,
@@ -104,7 +102,6 @@ def main():
     rag_path = str(ROOT / "data" / "structural_examples.jsonl")
     pipeline = LogicPipeline(config, rag_path=rag_path)
 
-    # Stats tracking.
     stats = {"ok": 0, "fail": 0, "total_time": 0.0}
 
     with output_path.open("w", encoding="utf-8") as f_out:
@@ -114,7 +111,7 @@ def main():
             problem = load_problem(raw)
 
             log.info(
-                "─── [%d/%d] %s (%d premises) ───",
+                "--- [%d/%d] %s (%d premises) ---",
                 problem_num + 1, total, problem.id, len(problem.premises),
             )
 
@@ -127,17 +124,18 @@ def main():
                 )
 
                 elapsed = time.time() - t0
-                stats["ok"] += 1
                 stats["total_time"] += elapsed
 
-                # Count readiness buckets.
                 ready = sum(1 for p in result.premises if p.solver_ready)
                 review = sum(1 for p in result.premises if p.needs_review)
                 unsupported = sum(1 for p in result.premises if p.unsupported)
+                ok = result.status == "success"
+                stats["ok" if ok else "fail"] += 1
 
                 record = {
                     "id": problem.id,
-                    "ok": True,
+                    "ok": ok,
+                    "status": result.status,
                     "elapsed_seconds": round(elapsed, 2),
                     "premise_count": len(problem.premises),
                     "solver_ready": ready,
@@ -145,11 +143,19 @@ def main():
                     "unsupported": unsupported,
                     "parse_result": result.model_dump(),
                 }
+                if result.error:
+                    record["error"] = result.error
 
-                log.info(
-                    "  ✓ %s (%.1fs) — %d ready, %d review, %d unsupported",
-                    problem.id, elapsed, ready, review, unsupported,
-                )
+                if ok:
+                    log.info(
+                        "  parsed %s (%.1fs) - %d ready, %d review, %d unsupported",
+                        problem.id, elapsed, ready, review, unsupported,
+                    )
+                else:
+                    log.error(
+                        "  failed %s (%.1fs) - %s",
+                        problem.id, elapsed, result.error or result.status,
+                    )
 
             except Exception as e:
                 elapsed = time.time() - t0
@@ -159,16 +165,16 @@ def main():
                 record = {
                     "id": problem.id,
                     "ok": False,
+                    "status": "failed",
                     "elapsed_seconds": round(elapsed, 2),
                     "error": str(e),
                 }
 
-                log.error("  ✗ %s (%.1fs) — %s", problem.id, elapsed, e)
+                log.error("  failed %s (%.1fs) - %s", problem.id, elapsed, e)
 
             f_out.write(json.dumps(record, ensure_ascii=False) + "\n")
-            f_out.flush()  # Ensure results are saved progressively.
+            f_out.flush()
 
-    # Final summary.
     print("\n" + "=" * 60)
     print("BATCH RUN COMPLETE")
     print("=" * 60)

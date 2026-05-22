@@ -10,6 +10,11 @@ from .stage3_ast import ASTCompiler
 from .stage4_validate import LogicValidator, classify_solver_readiness
 from .stage5_repair import RepairLoop
 from .question_parser import QuestionParser
+from .predicate_canonicalizer import (
+    canonicalize_question_parse,
+    canonicalize_stage3,
+    collect_predicate_names,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,14 +68,16 @@ class LogicPipeline:
         # ── Stage 3: AST Compilation (Stage 2 RAG is embedded) ──────────
         logger.info("Stage 3: Compiling CNL to AST...")
         t3 = time.time()
-        stage3_output = self.stage3.compile(stage1_output)
+        stage3_output = canonicalize_stage3(self.stage3.compile(stage1_output))
         logger.info("Stage 3 complete (%.1fs) — %d compiled", time.time() - t3, len(stage3_output.compiled))
 
         # ── Stage 4 + 5: Validate & Repair Loop ────────────────────────
+        final_report = None
         for attempt in range(self.config.max_repair_attempts + 1):
             report = self.validator.validate_stage3(stage3_output)
             if report.ok:
                 logger.info("Validation passed (attempt %d)", attempt + 1)
+                final_report = report
                 break
 
             error_count = sum(1 for i in report.issues if i.severity == "error")
@@ -85,11 +92,15 @@ class LogicPipeline:
             if attempt < self.config.max_repair_attempts:
                 logger.info("Stage 5: Repairing...")
                 t5 = time.time()
-                stage3_output = self.repair_loop.repair(stage3_output, report)
+                stage3_output = canonicalize_stage3(self.repair_loop.repair(stage3_output, report))
                 logger.info("Repair complete (%.1fs)", time.time() - t5)
+            else:
+                final_report = report
 
-        # Final validation check.
-        final_report = self.validator.validate_stage3(stage3_output)
+        # Use the last report from the loop if available; avoid redundant re-validation.
+        if final_report is None:
+            final_report = self.validator.validate_stage3(stage3_output)
+
         if not final_report.ok:
             error_messages = "\n".join(
                 f"  {i.premise_id} [{i.severity}]: {i.message}"
@@ -97,6 +108,12 @@ class LogicPipeline:
                 if i.severity == "error"
             )
             logger.error("Pipeline failed validation after all repair attempts:\n%s", error_messages)
+
+        result_status = "success"
+        result_error: str | None = None
+        if not final_report.ok:
+            result_status = "failed"
+            result_error = "validation_failed"
 
         # ── Classify solver readiness ───────────────────────────────────
         for item in stage3_output.compiled:
@@ -111,15 +128,25 @@ class LogicPipeline:
 
         # ── Question Parsing ────────────────────────────────────────────
         question_parse: QuestionParse | None = None
+        question_parse_valid = True
         if question:
             logger.info("Parsing question...")
             tq = time.time()
             try:
-                question_parse = self.question_parser.parse(question, choices)
+                question_parse = canonicalize_question_parse(
+                    self.question_parser.parse(
+                        question,
+                        choices,
+                        known_predicates=collect_predicate_names(stage3_output),
+                    )
+                )
                 logger.info("Question parse complete (%.1fs)", time.time() - tq)
             except Exception as e:
                 logger.error("Question parse failed: %s", e)
                 question_parse = QuestionParse(question=question)
+                question_parse_valid = False
+                result_status = "failed"
+                result_error = "question_parse_failed"
 
         total_time = time.time() - t0
         logger.info("Pipeline complete (%.1fs total)", total_time)
@@ -127,4 +154,7 @@ class LogicPipeline:
         return FullParseResult(
             premises=stage3_output.compiled,
             question=question_parse,
+            status=result_status,
+            error=result_error,
+            question_parse_valid=question_parse_valid,
         )

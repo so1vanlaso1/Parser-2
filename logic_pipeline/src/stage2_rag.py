@@ -41,14 +41,16 @@ class StructuralRAG:
 
         query_emb = self.embedder.encode([query], convert_to_numpy=True)[0]
 
-        scores = []
-        for emb in self.embeddings:
-            denom = np.linalg.norm(query_emb) * np.linalg.norm(emb)
-            score = float(np.dot(query_emb, emb) / denom) if denom else 0.0
-            scores.append(score)
+        # Vectorized cosine similarity: single matrix multiply + norm division.
+        query_norm = np.linalg.norm(query_emb)
+        emb_norms = np.linalg.norm(self.embeddings, axis=1)
+        denom = query_norm * emb_norms
+        # Avoid division by zero.
+        denom = np.where(denom == 0, 1.0, denom)
+        scores = (self.embeddings @ query_emb) / denom
 
         top_indices = np.argsort(scores)[::-1][:top_k]
-        return [self.items[i] | {"score": scores[i]} for i in top_indices]
+        return [self.items[i] | {"score": float(scores[i])} for i in top_indices]
 
     def format_examples(self, query: str, top_k: int = 3) -> str:
         """Format top-k retrieved examples for injection into Stage 3 prompt."""

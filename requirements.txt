@@ -7,6 +7,6 @@ torch
 torchvision
 transformers
 accelerate
-bitsandbytes
+bitsandbytes>=0.46.1
 pillow
 ollama

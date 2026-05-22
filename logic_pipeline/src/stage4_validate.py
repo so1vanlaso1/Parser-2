@@ -24,9 +24,12 @@ class LogicValidator:
     - Unbound variables
     - Negation encoded in predicate names
     - Double negation
-    - Incorrect arity for implies/not nodes
+    - Incorrect arity for implies/not/and/or/iff nodes
+    - Quantifier child count and missing variable
+    - Atomic nodes missing name or arguments
     - Missing implies in ONLY_IF_RULE
     - Missing iff in IFF premises
+    - Nested implies inside RULE (suggests META reclassification)
     """
 
     def validate_stage3(self, output: Stage3Output) -> ValidationReport:
@@ -55,6 +58,17 @@ class LogicValidator:
                         )
                     )
 
+            # Nested rule detector: RULE with implies-inside-implies → suggest META.
+            if item.kind == "RULE":
+                if self._has_nested_implies(item.ast):
+                    issues.append(
+                        ValidationIssue(
+                            item.premise_id,
+                            "warning",
+                            "RULE contains nested implies. Consider reclassifying as META.",
+                        )
+                    )
+
         return ValidationReport(
             ok=not any(i.severity == "error" for i in issues),
             issues=issues,
@@ -74,12 +88,22 @@ class LogicValidator:
         bound_vars: set[str],
         issues: list[ValidationIssue],
     ):
+        # --- Quantifier checks ---
         if node.type in {"forall", "exists"}:
             if not node.variable:
                 issues.append(
                     ValidationIssue(premise_id, "error", f"{node.type} missing variable")
                 )
                 return
+
+            if len(node.children) != 1:
+                issues.append(
+                    ValidationIssue(
+                        premise_id,
+                        "error",
+                        f"{node.type} node must have exactly 1 child, has {len(node.children)}.",
+                    )
+                )
 
             new_bound = set(bound_vars)
             new_bound.add(node.variable)
@@ -88,7 +112,18 @@ class LogicValidator:
                 self._walk(child, premise_id, new_bound, issues)
             return
 
+        # --- Atomic checks ---
         if node.type == "atomic":
+            if not node.name:
+                issues.append(
+                    ValidationIssue(premise_id, "error", "atomic node missing name.")
+                )
+
+            if not node.arguments:
+                issues.append(
+                    ValidationIssue(premise_id, "error", f"atomic predicate '{node.name or '?'}' has no arguments.")
+                )
+
             for arg in node.arguments:
                 # Constants (multi-char names like john, alphanet) are always allowed.
                 # Single-letter variables (x, y, z, s, t, u, v, w) must be bound.
@@ -110,6 +145,7 @@ class LogicValidator:
                     )
                 )
 
+        # --- NOT checks ---
         if node.type == "not":
             if len(node.children) != 1:
                 issues.append(
@@ -126,10 +162,33 @@ class LogicValidator:
                     )
                 )
 
+        # --- Implies checks ---
         if node.type == "implies":
             if len(node.children) != 2:
                 issues.append(
                     ValidationIssue(premise_id, "error", "IMPLIES node must have exactly 2 children.")
+                )
+
+        # --- And / Or / IFF checks ---
+        if node.type in {"and", "or", "iff"}:
+            if len(node.children) < 2:
+                issues.append(
+                    ValidationIssue(
+                        premise_id,
+                        "error",
+                        f"{node.type.upper()} node must have at least 2 children, has {len(node.children)}.",
+                    )
+                )
+
+        # --- Equation checks ---
+        if node.type == "equation":
+            if node.operator is None or node.left is None or node.right is None:
+                issues.append(
+                    ValidationIssue(
+                        premise_id,
+                        "error",
+                        "equation node missing operator, left, or right.",
+                    )
                 )
 
         for child in node.children:
@@ -139,6 +198,20 @@ class LogicValidator:
         if node.type == target:
             return True
         return any(self.contains_node_type(child, target) for child in node.children)
+
+    def _has_nested_implies(self, node: LogicNode, depth: int = 0) -> bool:
+        """Check if an implies node contains another implies node in its subtree."""
+        if node.type == "implies":
+            if depth > 0:
+                return True
+            for child in node.children:
+                if self._has_nested_implies(child, depth + 1):
+                    return True
+        else:
+            for child in node.children:
+                if self._has_nested_implies(child, depth):
+                    return True
+        return False
 
 
 def classify_solver_readiness(kind: str, ast_type: str, risk_flags: list[str]) -> str:
@@ -163,3 +236,4 @@ def classify_solver_readiness(kind: str, ast_type: str, risk_flags: list[str]) -
         return "needs_lowering"
 
     return "unsupported"
+

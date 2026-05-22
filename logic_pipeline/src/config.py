@@ -12,7 +12,11 @@ class PipelineConfig:
 
     temperature: float = 0.0
     seed: int = 42
-    max_new_tokens: int = 2048
+    max_new_tokens: int = 4096
+    stage1_max_new_tokens: int = 500
+    stage3_max_new_tokens: int = 700
+    question_max_new_tokens: int = 400
+    repair_max_new_tokens: int = 700
 
     # LLM prompt/response tracing.
     llm_live_trace: bool = True
@@ -29,6 +33,7 @@ class PipelineConfig:
     hf_bnb_4bit_quant_type: Literal["fp4", "nf4"] = "nf4"
     hf_bnb_4bit_compute_dtype: str = "float16"
     hf_bnb_4bit_use_double_quant: bool = True
+    enable_thinking: bool = False
 
     rag_top_k: int = 3
     max_repair_attempts: int = 2

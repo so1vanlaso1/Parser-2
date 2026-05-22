@@ -49,6 +49,11 @@ def main():
     )
     parser.add_argument("--repair", type=int, default=2, help="Max repair attempts")
     parser.add_argument(
+        "--no-frame-ast",
+        action="store_true",
+        help="Disable Stage 3 predicate-frame extraction and use the old full-AST LLM compiler",
+    )
+    parser.add_argument(
         "--no-4bit",
         action="store_true",
         help="Disable Hugging Face 4-bit quantized loading",
@@ -98,6 +103,7 @@ def main():
         llm_live_trace=not args.no_llm_trace,
         llm_trace_path=args.llm_trace,
         max_repair_attempts=args.repair,
+        enable_frame_ast_compiler=not args.no_frame_ast,
     )
     rag_path = str(ROOT / "data" / "structural_examples.jsonl")
     pipeline = LogicPipeline(config, rag_path=rag_path)

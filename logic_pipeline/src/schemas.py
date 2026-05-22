@@ -21,6 +21,9 @@ PremiseKind = Literal[
     "UNKNOWN",
 ]
 
+PredicateGroupConnective = Literal["and", "or"]
+
+
 LogicNodeType = Literal[
     "atomic",
     "and",
@@ -60,6 +63,46 @@ class CNLStatement(BaseModel):
 
 class Stage1Output(BaseModel):
     statements: list[CNLStatement]
+
+
+# ---------------------------------------------------------------------------
+# Stage 3-lite predicate frame models
+# ---------------------------------------------------------------------------
+
+class PredicateAtom(BaseModel):
+    name: str
+    arguments: list[str] = Field(default_factory=list)
+    negated: bool = False
+
+
+class PredicateGroup(BaseModel):
+    connective: PredicateGroupConnective = "and"
+    atoms: list[PredicateAtom] = Field(default_factory=list)
+
+
+class PredicateFrame(BaseModel):
+    premise_id: str
+    kind: PremiseKind
+    cnl: str
+
+    # For row-level logic tasks, most variables are single quantified variables
+    # such as x/y. Constants remain in atom arguments and do not need binding.
+    variable: Optional[str] = None
+
+    # Rules and universal statements use antecedent/consequent. Facts and
+    # existential statements usually use body.
+    antecedent: Optional[PredicateGroup] = None
+    consequent: Optional[PredicateGroup] = None
+    body: Optional[PredicateGroup] = None
+
+    # If true, the deterministic builder will skip this frame and use the
+    # existing full-AST compiler fallback for the premise.
+    unsupported: bool = False
+    notes: list[str] = Field(default_factory=list)
+
+
+class PredicateFrameOutput(BaseModel):
+    frames: list[PredicateFrame]
 
 
 # ---------------------------------------------------------------------------

@@ -15636,4 +15636,1933 @@ Return repaired JSON with the same schema.
           {
             "type": "and",
             "name": null,
-           
+            "arguments": [],
+            "children": [
+              {
+                "type": "atomic",
+                "name": "student",
+                "arguments": [
+                  "x"
+                ],
+                "children": [],
+                "variable": null,
+                "operator": null,
+                "left": null,
+                "right": null,
+                "source_premise_id": null,
+                "confidence": 1.0
+              },
+              {
+                "type": "atomic",
+                "name": "attending_tutorials",
+                "arguments": [
+                  "x"
+                ],
+                "children": [],
+                "variable": null,
+                "operator": null,
+                "left": null,
+                "right": null,
+                "source_premise_id": null,
+                "confidence": 1.0
+              }
+            ],
+            "variable": null,
+            "operator": null,
+            "left": null,
+            "right": null,
+            "source_premise_id": null,
+            "confidence": 1.0
+          }
+        ],
+        "variable": "x",
+        "operator": null,
+        "left": null,
+        "right": null,
+        "source_premise_id": null,
+        "confidence": 1.0
+      },
+      "solver_ready": false,
+      "needs_review": false,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P4",
+      "kind": "META",
+      "cnl": "If (a student not asking questions implies they are not attending tutorials), then there exists at least one student who is attending tutorials.",
+      "ast": {
+        "type": "implies",
+        "name": null,
+        "arguments": [],
+        "children": [
+          {
+            "type": "forall",
+            "name": null,
+            "arguments": [],
+            "children": [
+              {
+                "type": "implies",
+                "name": null,
+                "arguments": [],
+                "children": [
+                  {
+                    "type": "not",
+                    "name": null,
+                    "arguments": [],
+                    "children": [
+                      {
+                        "type": "atomic",
+                        "name": "asking_questions",
+                        "arguments": [
+                          "x"
+                        ],
+                        "children": [],
+                        "variable": null,
+                        "operator": null,
+                        "left": null,
+                        "right": null,
+                        "source_premise_id": null,
+                        "confidence": 1.0
+                      }
+                    ],
+                    "variable": null,
+                    "operator": null,
+                    "left": null,
+                    "right": null,
+                    "source_premise_id": null,
+                    "confidence": 1.0
+                  },
+                  {
+                    "type": "not",
+                    "name": null,
+                    "arguments": [],
+                    "children": [
+                      {
+                        "type": "atomic",
+                        "name": "attending_tutorials",
+                        "arguments": [
+                          "x"
+                        ],
+                        "children": [],
+                        "variable": null,
+                        "operator": null,
+                        "left": null,
+                        "right": null,
+                        "source_premise_id": null,
+                        "confidence": 1.0
+                      }
+                    ],
+                    "variable": null,
+                    "operator": null,
+                    "left": null,
+                    "right": null,
+                    "source_premise_id": null,
+                    "confidence": 1.0
+                  }
+                ],
+                "variable": "x",
+                "operator": null,
+                "left": null,
+                "right": null,
+                "source_premise_id": null,
+                "confidence": 1.0
+              }
+            ],
+            "variable": "x",
+            "operator": null,
+            "left": null,
+            "right": null,
+            "source_premise_id": null,
+            "confidence": 1.0
+          },
+          {
+            "type": "exists",
+            "name": null,
+            "arguments": [],
+            "children": [
+              {
+                "type": "and",
+                "name": null,
+                "arguments": [],
+                "children": [
+                  {
+                    "type": "atomic",
+                    "name": "student",
+                    "arguments": [
+                      "y"
+                    ],
+                    "children": [],
+                    "variable": null,
+                    "operator": null,
+                    "left": null,
+                    "right": null,
+                    "source_premise_id": null,
+                    "confidence": 1.0
+                  },
+                  {
+                    "type": "atomic",
+                    "name": "attending_tutorials",
+                    "arguments": [
+                      "y"
+                    ],
+                    "children": [],
+                    "variable": null,
+                    "operator": null,
+                    "left": null,
+                    "right": null,
+                    "source_premise_id": null,
+                    "confidence": 1.0
+                  }
+                ],
+                "variable": null,
+                "operator": null,
+                "left": null,
+                "right": null,
+                "source_premise_id": null,
+                "confidence": 1.0
+              }
+            ],
+            "variable": "y",
+            "operator": null,
+            "left": null,
+            "right": null,
+            "source_premise_id": null,
+            "confidence": 1.0
+          }
+        ],
+        "variable": null,
+        "operator": null,
+        "left": null,
+        "right": null,
+        "source_premise_id": null,
+        "confidence": 1.0
+      },
+      "solver_ready": false,
+      "needs_review": false,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P5",
+      "kind": "META",
+      "cnl": "If there exists at least one student who is
+[END LLM CALL 3]
+
+================================================================================
+LLM CALL 4 | 2026-05-22T22:39:26 | provider=huggingface | model=Qwen/Qwen3.5-4B
+================================================================================
+[SYSTEM PROMPT]
+/no_think
+
+You are Stage 1 of a neurosymbolic logic parser.
+You are a JSON transducer, not a solver.
+
+Task:
+Convert each raw English premise into clean Controlled Natural Language (CNL).
+
+Core goals:
+- Preserve the original logic.
+- Make the sentence easier for later code/parser stages to process.
+- Do not solve the problem.
+- Do not infer new facts.
+- Do not create predicate names yet.
+
+Output rules:
+- Output ONLY valid JSON.
+- First character must be {.
+- Do not write analysis.
+- Do not write explanations.
+- Do not write markdown.
+- Do not write "Thinking Process".
+- Do not include comments.
+- Do not solve.
+- Do not infer unstated facts.
+- Do not create predicate names.
+- Preserve logical direction, quantifiers, negation, modality, named entities, and numeric thresholds.
+- End after the JSON object with <END_JSON>.
+
+Allowed kind_hint values:
+FACT, EXISTS, FORALL, RULE, ONLY_IF_RULE, IFF, NON_IF_RULE, OBLIGATION_RULE, META, UNKNOWN
+
+Allowed risk_flags:
+negative_body,
+modal_uncertainty,
+modal_not_necessarily,
+partial_negation,
+unless_rule,
+only_if_direction,
+only_subject_rule,
+numeric_condition,
+deontic_obligation,
+deontic_permission,
+deontic_prohibition,
+non_if_rule,
+relative_clause_rule,
+nested_logic,
+meta_statement,
+ambiguous_scope,
+needs_review
+
+Return this exact JSON shape:
+
+{
+  "statements": [
+    {
+      "premise_id": "P1",
+      "original": "...",
+      "kind_hint": "RULE",
+      "cnl": "...",
+      "risk_flags": [],
+      "if_part": null,
+      "then_part": null,
+      "body": null
+    }
+  ]
+}
+
+Field rules:
+- premise_id: copy the input premise label exactly, such as "P1".
+- original: copy the original premise exactly.
+- kind_hint: choose one allowed kind_hint.
+- cnl: rewrite into clear Controlled Natural Language.
+- risk_flags: use only allowed risk_flags.
+- if_part: condition part for rules; otherwise null.
+- then_part: consequence part for rules; otherwise null.
+- body: full body for FACT, EXISTS, FORALL, OBLIGATION_RULE, META, UNKNOWN when no if/then split is used.
+
+General rewrite rules:
+- Conditional: "If A, then B."
+- A if B = If B, then A.
+- A only if B = If A, then B.
+- Only A do B = If B, then A.
+- A if and only if B = A if and only if B.
+- Do not reverse rule direction.
+- Do not add missing premises.
+- Do not remove named entities.
+- Do not simplify away negation or modality.
+
+Kind classification rules:
+
+CRITICAL CLASSIFICATION PRIORITY: Apply these rules in order. The FIRST match wins.
+
+1. FACT
+Use FACT for a specific statement about a named entity or individual.
+Examples:
+- "John is a student."
+- "The AlphaNet model achieves high accuracy."
+- "Sarah does not have housing."
+
+2. EXISTS
+Use EXISTS for existential statements that ASSERT the existence of something.
+Triggers:
+- some
+- at least one
+- there exists
+- one or more
+- a certain
+- there is
+IMPORTANT: If the sentence asserts existence WITHOUT a conditional structure, classify as EXISTS.
+If the sentence has "there exists ... such that if ...", it is still EXISTS with a conditional body.
+Do NOT classify existence assertions as RULE.
+Examples:
+- "Some students receive scholarships." → EXISTS
+- "At least one model uses a powerful GPU." → EXISTS
+- "There is a researcher who passed the exam." → EXISTS
+- "There exists a student who is both smart and diligent." → EXISTS
+
+3. FORALL
+Use FORALL for universal property statements WITHOUT an explicit conditional connector.
+Triggers:
+- every
+- all
+- each
+- any (when meaning "every")
+IMPORTANT: If the sentence says "All X do Y" or "Every X has Y" WITHOUT words like "if", "when", "then", or an implicit condition, classify as FORALL, not RULE.
+A FORALL asserts a property of every member. A RULE has a condition and a consequence.
+Examples:
+- "Every student submits homework." → FORALL
+- "All researchers follow safety rules." → FORALL
+- "Each model has an identifier." → FORALL
+- "All birds can fly." → FORALL
+
+4. RULE
+Use RULE for conditional, causal, requirement, relative-clause, or trigger-based statements.
+A RULE must have a clear condition (antecedent) and consequence (consequent).
+Examples:
+- "If a student passes the exam, then the student graduates."
+- "Students who submit homework receive feedback."
+- "Models trained with large datasets achieve high accuracy."
+
+5. ONLY_IF_RULE
+Use ONLY_IF_RULE when the original sentence contains "only if", "only when", or a necessary-condition structure.
+Direction:
+- A only if B = If A, then B.
+- A only when B = If A, then B.
+- A requires B = If A, then B.
+- B is required for A = If A, then B.
+- A depends on B = If A, then B.
+Add risk_flag "only_if_direction".
+
+6. IFF
+Use IFF for biconditional statements.
+Triggers:
+- if and only if
+- exactly when
+- precisely when
+Examples:
+- "A student is eligible if and only if the student passes the exam."
+- "A model is approved exactly when it satisfies all safety checks."
+
+7. NON_IF_RULE
+Use NON_IF_RULE for rule-like sentences without explicit "if".
+These should usually be rewritten into "If A, then B."
+Connector rules:
+- A grants B = If A, then B.
+- A allows B = If A, then B.
+- A enables B = If A, then B.
+- A ensures B = If A, then B.
+- A guarantees B = If A, then B.
+- A leads to B = If A, then B.
+- A results in B = If A, then B.
+- A causes B = If A, then B.
+- A prevents B = If A, then NOT B.
+- A blocks B = If A, then NOT B.
+- A disqualifies from B = If A, then NOT B.
+- A causes loss of B = If A, then NOT has B.
+- A causes removal of B = If A, then NOT has B.
+- A causes revocation of B = If A, then NOT has B.
+Add risk_flag "non_if_rule".
+
+8. OBLIGATION_RULE
+Use OBLIGATION_RULE for deontic statements about what is required, permitted, or forbidden.
+Obligation triggers:
+- must
+- required to
+- mandatory
+- obligated to
+- have to
+- shall
+- is obligatory
+Add risk_flag "deontic_obligation".
+
+Permission triggers:
+- may
+- allowed to
+- permitted to
+Add risk_flag "deontic_permission".
+
+Prohibition triggers:
+- must not
+- prohibited
+- forbidden
+- not allowed to
+Add risk_flag "deontic_prohibition".
+
+IMPORTANT: Do not convert obligations, permissions, or prohibitions into ordinary facts or rules.
+Preserve the deontic modality. "It is mandatory that X" is NOT the same as "X".
+
+9. META
+Use META when a premise talks about another statement, rule, belief, claim, condition, exception, implication, or nested logic.
+IMPORTANT: If the sentence contains a NESTED conditional (e.g. "If (A implies B), then C" or "If the rule that X holds, then Y"), classify as META.
+Check for these patterns:
+- "If [some implication] then [consequence]" → META with "nested_logic"
+- "It is not true that [some rule]" → META with "meta_statement"
+- "The rule that X applies only to Y" → META with "meta_statement"
+- "If the claim that X is false, then Y" → META with "meta_statement"
+Examples:
+- "If passing the exam implies graduation, then students who pass the exam are eligible."
+- "It is not true that if a model is accurate, it is reliable."
+- "The rule that students must submit reports applies only to final-year students."
+- "If the claim that AlphaNet is reliable is false, then the audit continues."
+For META:
+- Keep the nested statement literal.
+- Do not flatten nested logic unless the direction is completely obvious.
+- Add risk_flag "nested_logic" or "meta_statement".
+
+10. UNKNOWN
+Use UNKNOWN only when the premise cannot be safely classified.
+Add risk_flag "needs_review".
+
+Quantifier and negation rules:
+- "No A are B" means every A is NOT B.
+- "None of A are B" means every A is NOT B.
+- "Not all A are B" does NOT mean "No A are B".
+- Preserve "not all" and add risk_flag "partial_negation".
+- "not necessarily" is modal uncertainty, not classical NOT.
+- For "not necessarily", preserve the phrase and add risk_flag "modal_not_necessarily".
+- may / might / could / possibly / probably / likely = modal uncertainty.
+- Preserve modal words.
+- Add risk_flag "modal_uncertainty".
+- without X = NOT has X.
+- fail to X = NOT X.
+- cannot X = NOT X.
+- lack X = NOT has X.
+- loss of X = NOT has X.
+- revocation of X = NOT has X.
+- non-participation = NOT participate.
+
+Unless rules:
+- "A unless B" = If NOT B, then A.
+- Preserve the original meaning carefully.
+- Add risk_flag "unless_rule".
+- If the scope of "unless" is unclear, add risk_flag "ambiguous_scope".
+
+Relative-clause rules:
+- Sentences like "A student who does X receives Y" should become:
+  "If a student does X, then the student receives Y."
+- Sentences like "Models trained with large datasets achieve high accuracy" should become:
+  "If a model is trained with large datasets, then the model achieves high accuracy."
+- Sentences like "A model that does X requires Y" should become:
+  "If a model does X, then the model has Y."
+- Add risk_flag "relative_clause_rule" if the relative clause creates the rule condition.
+- Add risk_flag "only_if_direction" when the original sentence uses "requires", "required for", or another necessary-condition form.
+
+Compound antecedent splitting rules:
+IMPORTANT: When splitting a sentence into if_part and then_part, keep ALL qualifying
+attributes and descriptors of the subject together in the if_part. Do not split subject
+qualifiers between if_part and then_part.
+- "A third-year student who gets an internship receives a recommendation."
+  if_part: "a student is a third-year student and the student gets an internship"
+  then_part: "the student receives a recommendation"
+- "Students enrolled in honors who maintain GPA receive priority registration."
+  if_part: "a student is enrolled in honors and the student maintains GPA"
+  then_part: "the student receives priority registration"
+
+Numeric and comparison rules:
+- Preserve numeric thresholds exactly.
+- Do not simplify comparisons.
+- For more than, less than, above, below, at least, at most, exactly, minimum, maximum, add risk_flag "numeric_condition".
+- Only use "numeric_condition" when the premise contains an explicit number, percentage, comparison, or threshold.
+- Do not use "numeric_condition" for vague adjectives such as large, small, high, low, strong, or weak.
+Examples:
+- "Students with GPA above 3.5 receive scholarships."
+  Rewrite as: "If a student has GPA above 3.5, then the student receives scholarships."
+- "At least 80% attendance is required."
+  Preserve "at least 80% attendance".
+
+Examples of correct direction:
+
+Input:
+P1: A student graduates only if the student passes the final exam.
+
+Output:
+{
+  "premise_id": "P1",
+  "original": "A student graduates only if the student passes the final exam.",
+  "kind_hint": "ONLY_IF_RULE",
+  "cnl": "If a student graduates, then the student passes the final exam.",
+  "risk_flags": ["only_if_direction"],
+  "if_part": "a student graduates",
+  "then_part": "the student passes the final exam",
+  "body": null
+}
+
+Input:
+P2: Only students with lab approval can enter the laboratory.
+
+Output:
+{
+  "premise_id": "P2",
+  "original": "Only students with lab approval can enter the laboratory.",
+  "kind_hint": "RULE",
+  "cnl": "If a student can enter the laboratory, then the student has lab approval.",
+  "risk_flags": ["only_subject_rule"],
+  "if_part": "a student can enter the laboratory",
+  "then_part": "the student has lab approval",
+  "body": null
+}
+
+Input:
+P3: Students who fail to maintain GPA lose housing.
+
+Output:
+{
+  "premise_id": "P3",
+  "original": "Students who fail to maintain GPA lose housing.",
+  "kind_hint": "RULE",
+  "cnl": "If a student does NOT maintain GPA, then the student does NOT have housing.",
+  "risk_flags": ["negative_body", "relative_clause_rule"],
+  "if_part": "a student does NOT maintain GPA",
+  "then_part": "the student does NOT have housing",
+  "body": null
+}
+
+Input:
+P4: Wearing goggles is mandatory in science laboratories.
+
+Output:
+{
+  "premise_id": "P4",
+  "original": "Wearing goggles is mandatory in science laboratories.",
+  "kind_hint": "OBLIGATION_RULE",
+  "cnl": "It is mandatory to wear goggles in science laboratories.",
+  "risk_flags": ["deontic_obligation"],
+  "if_part": null,
+  "then_part": null,
+  "body": "It is mandatory to wear goggles in science laboratories."
+}
+
+Input:
+P5: Every smart home device is not necessarily energy efficient.
+
+Output:
+{
+  "premise_id": "P5",
+  "original": "Every smart home device is not necessarily energy efficient.",
+  "kind_hint": "FORALL",
+  "cnl": "Every smart home device is not necessarily energy efficient.",
+  "risk_flags": ["modal_not_necessarily", "modal_uncertainty"],
+  "if_part": null,
+  "then_part": null,
+  "body": "Every smart home device is not necessarily energy efficient."
+}
+
+Input:
+P6: Some students receive scholarships.
+
+Output:
+{
+  "premise_id": "P6",
+  "original": "Some students receive scholarships.",
+  "kind_hint": "EXISTS",
+  "cnl": "There exists a student who receives scholarships.",
+  "risk_flags": [],
+  "if_part": null,
+  "then_part": null,
+  "body": "There exists a student who receives scholarships."
+}
+
+Input:
+P7: If passing the exam implies graduation, then students who pass are eligible.
+
+Output:
+{
+  "premise_id": "P7",
+  "original": "If passing the exam implies graduation, then students who pass are eligible.",
+  "kind_hint": "META",
+  "cnl": "If passing the exam implies graduation, then students who pass the exam are eligible.",
+  "risk_flags": ["nested_logic", "meta_statement"],
+  "if_part": "passing the exam implies graduation",
+  "then_part": "students who pass the exam are eligible",
+  "body": null
+}
+
+Final instruction:
+Return exactly one JSON object with the key "statements".
+Do not output anything before the JSON.
+Do not output anything after <END_JSON>.
+
+
+[USER PROMPT]
+P1: Every subject contains knowledge.
+P2: If a student has knowledge of a subject, they can explain it to their friends.
+P3: If a student explains a subject to their friends and the friends understand it, the student has mastered the subject.
+P4: If a student masters a subject, they can earn an A or A+.
+P5: If a student earns at least five A or A+ grades, they can receive a scholarship.
+P6: Tuấn has earned three A grades.
+P7: Tuấn has not earned any additional A+ grades.
+P8: If a student earns an A in a subject, they must have mastered the subject.
+P9: If Tuấn's friends do not understand a subject, Tuấn has not mastered it.
+P10: If a student cannot explain a subject, they do not have knowledge of it.
+
+[MODEL OUTPUT]
+
+================================================================================
+LLM CALL 1 | 2026-05-22T23:01:45 | provider=huggingface | model=Qwen/Qwen3.5-4B
+================================================================================
+[SYSTEM PROMPT]
+/no_think
+
+You are Stage 1 of a neurosymbolic logic parser.
+You are a JSON transducer, not a solver.
+
+Task:
+Convert each raw English premise into clean Controlled Natural Language (CNL).
+
+Core goals:
+- Preserve the original logic.
+- Make the sentence easier for later code/parser stages to process.
+- Do not solve the problem.
+- Do not infer new facts.
+- Do not create predicate names yet.
+
+Output rules:
+- Output ONLY valid JSON.
+- First character must be {.
+- Do not write analysis.
+- Do not write explanations.
+- Do not write markdown.
+- Do not write "Thinking Process".
+- Do not include comments.
+- Do not solve.
+- Do not infer unstated facts.
+- Do not create predicate names.
+- Preserve logical direction, quantifiers, negation, modality, named entities, and numeric thresholds.
+- End after the JSON object with <END_JSON>.
+
+Allowed kind_hint values:
+FACT, EXISTS, FORALL, RULE, ONLY_IF_RULE, IFF, NON_IF_RULE, OBLIGATION_RULE, META, UNKNOWN
+
+Allowed risk_flags:
+negative_body,
+modal_uncertainty,
+modal_not_necessarily,
+partial_negation,
+unless_rule,
+only_if_direction,
+only_subject_rule,
+numeric_condition,
+deontic_obligation,
+deontic_permission,
+deontic_prohibition,
+non_if_rule,
+relative_clause_rule,
+nested_logic,
+meta_statement,
+ambiguous_scope,
+needs_review
+
+Return this exact JSON shape:
+
+{
+  "statements": [
+    {
+      "premise_id": "P1",
+      "original": "...",
+      "kind_hint": "RULE",
+      "cnl": "...",
+      "risk_flags": [],
+      "if_part": null,
+      "then_part": null,
+      "body": null
+    }
+  ]
+}
+
+Field rules:
+- premise_id: copy the input premise label exactly, such as "P1".
+- original: copy the original premise exactly.
+- kind_hint: choose one allowed kind_hint.
+- cnl: rewrite into clear Controlled Natural Language.
+- risk_flags: use only allowed risk_flags.
+- if_part: condition part for rules; otherwise null.
+- then_part: consequence part for rules; otherwise null.
+- body: full body for FACT, EXISTS, FORALL, OBLIGATION_RULE, META, UNKNOWN when no if/then split is used.
+
+General rewrite rules:
+- Conditional: "If A, then B."
+- A if B = If B, then A.
+- A only if B = If A, then B.
+- Only A do B = If B, then A.
+- A if and only if B = A if and only if B.
+- Do not reverse rule direction.
+- Do not add missing premises.
+- Do not remove named entities.
+- Do not simplify away negation or modality.
+
+Kind classification rules:
+
+CRITICAL CLASSIFICATION PRIORITY: Apply these rules in order. The FIRST match wins.
+
+1. FACT
+Use FACT for a specific statement about a named entity or individual.
+Examples:
+- "John is a student."
+- "The AlphaNet model achieves high accuracy."
+- "Sarah does not have housing."
+
+2. EXISTS
+Use EXISTS for existential statements that ASSERT the existence of something.
+Triggers:
+- some
+- at least one
+- there exists
+- one or more
+- a certain
+- there is
+IMPORTANT: If the sentence asserts existence WITHOUT a conditional structure, classify as EXISTS.
+If the sentence has "there exists ... such that if ...", it is still EXISTS with a conditional body.
+Do NOT classify existence assertions as RULE.
+Examples:
+- "Some students receive scholarships." → EXISTS
+- "At least one model uses a powerful GPU." → EXISTS
+- "There is a researcher who passed the exam." → EXISTS
+- "There exists a student who is both smart and diligent." → EXISTS
+
+3. FORALL
+Use FORALL for universal property statements WITHOUT an explicit conditional connector.
+Triggers:
+- every
+- all
+- each
+- any (when meaning "every")
+IMPORTANT: If the sentence says "All X do Y" or "Every X has Y" WITHOUT words like "if", "when", "then", or an implicit condition, classify as FORALL, not RULE.
+A FORALL asserts a property of every member. A RULE has a condition and a consequence.
+Examples:
+- "Every student submits homework." → FORALL
+- "All researchers follow safety rules." → FORALL
+- "Each model has an identifier." → FORALL
+- "All birds can fly." → FORALL
+
+4. RULE
+Use RULE for conditional, causal, requirement, relative-clause, or trigger-based statements.
+A RULE must have a clear condition (antecedent) and consequence (consequent).
+Examples:
+- "If a student passes the exam, then the student graduates."
+- "Students who submit homework receive feedback."
+- "Models trained with large datasets achieve high accuracy."
+
+5. ONLY_IF_RULE
+Use ONLY_IF_RULE when the original sentence contains "only if", "only when", or a necessary-condition structure.
+Direction:
+- A only if B = If A, then B.
+- A only when B = If A, then B.
+- A requires B = If A, then B.
+- B is required for A = If A, then B.
+- A depends on B = If A, then B.
+Add risk_flag "only_if_direction".
+
+6. IFF
+Use IFF for biconditional statements.
+Triggers:
+- if and only if
+- exactly when
+- precisely when
+Examples:
+- "A student is eligible if and only if the student passes the exam."
+- "A model is approved exactly when it satisfies all safety checks."
+
+7. NON_IF_RULE
+Use NON_IF_RULE for rule-like sentences without explicit "if".
+These should usually be rewritten into "If A, then B."
+Connector rules:
+- A grants B = If A, then B.
+- A allows B = If A, then B.
+- A enables B = If A, then B.
+- A ensures B = If A, then B.
+- A guarantees B = If A, then B.
+- A leads to B = If A, then B.
+- A results in B = If A, then B.
+- A causes B = If A, then B.
+- A prevents B = If A, then NOT B.
+- A blocks B = If A, then NOT B.
+- A disqualifies from B = If A, then NOT B.
+- A causes loss of B = If A, then NOT has B.
+- A causes removal of B = If A, then NOT has B.
+- A causes revocation of B = If A, then NOT has B.
+Add risk_flag "non_if_rule".
+
+8. OBLIGATION_RULE
+Use OBLIGATION_RULE for deontic statements about what is required, permitted, or forbidden.
+Obligation triggers:
+- must
+- required to
+- mandatory
+- obligated to
+- have to
+- shall
+- is obligatory
+Add risk_flag "deontic_obligation".
+
+Permission triggers:
+- may
+- allowed to
+- permitted to
+Add risk_flag "deontic_permission".
+
+Prohibition triggers:
+- must not
+- prohibited
+- forbidden
+- not allowed to
+Add risk_flag "deontic_prohibition".
+
+IMPORTANT: Do not convert obligations, permissions, or prohibitions into ordinary facts or rules.
+Preserve the deontic modality. "It is mandatory that X" is NOT the same as "X".
+
+9. META
+Use META when a premise talks about another statement, rule, belief, claim, condition, exception, implication, or nested logic.
+IMPORTANT: If the sentence contains a NESTED conditional (e.g. "If (A implies B), then C" or "If the rule that X holds, then Y"), classify as META.
+Check for these patterns:
+- "If [some implication] then [consequence]" → META with "nested_logic"
+- "It is not true that [some rule]" → META with "meta_statement"
+- "The rule that X applies only to Y" → META with "meta_statement"
+- "If the claim that X is false, then Y" → META with "meta_statement"
+Examples:
+- "If passing the exam implies graduation, then students who pass the exam are eligible."
+- "It is not true that if a model is accurate, it is reliable."
+- "The rule that students must submit reports applies only to final-year students."
+- "If the claim that AlphaNet is reliable is false, then the audit continues."
+For META:
+- Keep the nested statement literal.
+- Do not flatten nested logic unless the direction is completely obvious.
+- Add risk_flag "nested_logic" or "meta_statement".
+
+10. UNKNOWN
+Use UNKNOWN only when the premise cannot be safely classified.
+Add risk_flag "needs_review".
+
+Quantifier and negation rules:
+- "No A are B" means every A is NOT B.
+- "None of A are B" means every A is NOT B.
+- "Not all A are B" does NOT mean "No A are B".
+- Preserve "not all" and add risk_flag "partial_negation".
+- "not necessarily" is modal uncertainty, not classical NOT.
+- For "not necessarily", preserve the phrase and add risk_flag "modal_not_necessarily".
+- may / might / could / possibly / probably / likely = modal uncertainty.
+- Preserve modal words.
+- Add risk_flag "modal_uncertainty".
+- without X = NOT has X.
+- fail to X = NOT X.
+- cannot X = NOT X.
+- lack X = NOT has X.
+- loss of X = NOT has X.
+- revocation of X = NOT has X.
+- non-participation = NOT participate.
+
+Unless rules:
+- "A unless B" = If NOT B, then A.
+- Preserve the original meaning carefully.
+- Add risk_flag "unless_rule".
+- If the scope of "unless" is unclear, add risk_flag "ambiguous_scope".
+
+Relative-clause rules:
+- Sentences like "A student who does X receives Y" should become:
+  "If a student does X, then the student receives Y."
+- Sentences like "Models trained with large datasets achieve high accuracy" should become:
+  "If a model is trained with large datasets, then the model achieves high accuracy."
+- Sentences like "A model that does X requires Y" should become:
+  "If a model does X, then the model has Y."
+- Add risk_flag "relative_clause_rule" if the relative clause creates the rule condition.
+- Add risk_flag "only_if_direction" when the original sentence uses "requires", "required for", or another necessary-condition form.
+
+Compound antecedent splitting rules:
+IMPORTANT: When splitting a sentence into if_part and then_part, keep ALL qualifying
+attributes and descriptors of the subject together in the if_part. Do not split subject
+qualifiers between if_part and then_part.
+- "A third-year student who gets an internship receives a recommendation."
+  if_part: "a student is a third-year student and the student gets an internship"
+  then_part: "the student receives a recommendation"
+- "Students enrolled in honors who maintain GPA receive priority registration."
+  if_part: "a student is enrolled in honors and the student maintains GPA"
+  then_part: "the student receives priority registration"
+
+Numeric and comparison rules:
+- Preserve numeric thresholds exactly.
+- Do not simplify comparisons.
+- For more than, less than, above, below, at least, at most, exactly, minimum, maximum, add risk_flag "numeric_condition".
+- Only use "numeric_condition" when the premise contains an explicit number, percentage, comparison, or threshold.
+- Do not use "numeric_condition" for vague adjectives such as large, small, high, low, strong, or weak.
+Examples:
+- "Students with GPA above 3.5 receive scholarships."
+  Rewrite as: "If a student has GPA above 3.5, then the student receives scholarships."
+- "At least 80% attendance is required."
+  Preserve "at least 80% attendance".
+
+Examples of correct direction:
+
+Input:
+P1: A student graduates only if the student passes the final exam.
+
+Output:
+{
+  "premise_id": "P1",
+  "original": "A student graduates only if the student passes the final exam.",
+  "kind_hint": "ONLY_IF_RULE",
+  "cnl": "If a student graduates, then the student passes the final exam.",
+  "risk_flags": ["only_if_direction"],
+  "if_part": "a student graduates",
+  "then_part": "the student passes the final exam",
+  "body": null
+}
+
+Input:
+P2: Only students with lab approval can enter the laboratory.
+
+Output:
+{
+  "premise_id": "P2",
+  "original": "Only students with lab approval can enter the laboratory.",
+  "kind_hint": "RULE",
+  "cnl": "If a student can enter the laboratory, then the student has lab approval.",
+  "risk_flags": ["only_subject_rule"],
+  "if_part": "a student can enter the laboratory",
+  "then_part": "the student has lab approval",
+  "body": null
+}
+
+Input:
+P3: Students who fail to maintain GPA lose housing.
+
+Output:
+{
+  "premise_id": "P3",
+  "original": "Students who fail to maintain GPA lose housing.",
+  "kind_hint": "RULE",
+  "cnl": "If a student does NOT maintain GPA, then the student does NOT have housing.",
+  "risk_flags": ["negative_body", "relative_clause_rule"],
+  "if_part": "a student does NOT maintain GPA",
+  "then_part": "the student does NOT have housing",
+  "body": null
+}
+
+Input:
+P4: Wearing goggles is mandatory in science laboratories.
+
+Output:
+{
+  "premise_id": "P4",
+  "original": "Wearing goggles is mandatory in science laboratories.",
+  "kind_hint": "OBLIGATION_RULE",
+  "cnl": "It is mandatory to wear goggles in science laboratories.",
+  "risk_flags": ["deontic_obligation"],
+  "if_part": null,
+  "then_part": null,
+  "body": "It is mandatory to wear goggles in science laboratories."
+}
+
+Input:
+P5: Every smart home device is not necessarily energy efficient.
+
+Output:
+{
+  "premise_id": "P5",
+  "original": "Every smart home device is not necessarily energy efficient.",
+  "kind_hint": "FORALL",
+  "cnl": "Every smart home device is not necessarily energy efficient.",
+  "risk_flags": ["modal_not_necessarily", "modal_uncertainty"],
+  "if_part": null,
+  "then_part": null,
+  "body": "Every smart home device is not necessarily energy efficient."
+}
+
+Input:
+P6: Some students receive scholarships.
+
+Output:
+{
+  "premise_id": "P6",
+  "original": "Some students receive scholarships.",
+  "kind_hint": "EXISTS",
+  "cnl": "There exists a student who receives scholarships.",
+  "risk_flags": [],
+  "if_part": null,
+  "then_part": null,
+  "body": "There exists a student who receives scholarships."
+}
+
+Input:
+P7: If passing the exam implies graduation, then students who pass are eligible.
+
+Output:
+{
+  "premise_id": "P7",
+  "original": "If passing the exam implies graduation, then students who pass are eligible.",
+  "kind_hint": "META",
+  "cnl": "If passing the exam implies graduation, then students who pass the exam are eligible.",
+  "risk_flags": ["nested_logic", "meta_statement"],
+  "if_part": "passing the exam implies graduation",
+  "then_part": "students who pass the exam are eligible",
+  "body": null
+}
+
+Final instruction:
+Return exactly one JSON object with the key "statements".
+Do not output anything before the JSON.
+Do not output anything after <END_JSON>.
+
+
+[USER PROMPT]
+P1: Every student is preparing for an exam.
+P2: If a student is not asking questions, then they are not attending tutorials.
+P3: There exists at least one student who is attending tutorials.
+P4: If (a student not asking questions implies they are not attending tutorials), then there exists at least one student who is attending tutorials.
+P5: If there exists at least one student who is attending tutorials, then (if a student is not asking questions, they are not attending tutorials).
+P6: Every student is understanding the material.
+P7: There exists at least one student who is preparing for an exam.
+
+[MODEL OUTPUT]
+{
+  "statements": [
+    {
+      "premise_id": "P1",
+      "original": "Every student is preparing for an exam.",
+      "kind_hint": "FORALL",
+      "cnl": "Every student is preparing for an exam.",
+      "risk_flags": [],
+      "if_part": null,
+      "then_part": null,
+      "body": "Every student is preparing for an exam."
+    },
+    {
+      "premise_id": "P2",
+      "original": "If a student is not asking questions, then they are not attending tutorials.",
+      "kind_hint": "RULE",
+      "cnl": "If a student is not asking questions, then the student is not attending tutorials.",
+      "risk_flags": ["negative_body"],
+      "if_part": "a student is not asking questions",
+      "then_part": "the student is not attending tutorials",
+      "body": null
+    },
+    {
+      "premise_id": "P3",
+      "original": "There exists at least one student who is attending tutorials.",
+      "kind_hint": "EXISTS",
+      "cnl": "There exists at least one student who is attending tutorials.",
+      "risk_flags": [],
+      "if_part": null,
+      "then_part": null,
+      "body": "There exists at least one student who is attending tutorials."
+    },
+    {
+      "premise_id": "P4",
+      "original": "If (a student not asking questions implies they are not attending tutorials), then there exists at least one student who is attending tutorials.",
+      "kind_hint": "META",
+      "cnl": "If (a student not asking questions implies they are not attending tutorials), then there exists at least one student who is attending tutorials.",
+      "risk_flags": ["nested_logic", "meta_statement"],
+      "if_part": "a student not asking questions implies they are not attending tutorials",
+      "then_part": "there exists at least one student who is attending tutorials",
+      "body": null
+    },
+    {
+      "premise_id": "P5",
+      "original": "If there exists at least one student who is attending tutorials, then (if a student is not asking questions, they are not attending tutorials).",
+      "kind_hint": "RULE",
+      "cnl": "If there exists at least one student who is attending tutorials, then if a student is not asking questions, the student is not attending tutorials.",
+      "risk_flags": ["negative_body"],
+      "if_part": "there exists at least one student who is attending tutorials",
+      "then_part": "if a student is not asking questions, the student is not attending tutorials",
+      "body": null
+    },
+    {
+      "premise_id": "P6",
+      "original": "Every student is understanding the material.",
+      "kind_hint": "FORALL",
+      "cnl": "Every student is understanding the material.",
+      "risk_flags": [],
+      "if_part": null,
+      "then_part": null,
+      "body": "Every student is understanding the material."
+    },
+    {
+      "premise_id": "P7",
+      "original": "There exists at least one student who is preparing for an exam.",
+      "kind_hint": "EXISTS",
+      "cnl": "There exists at least one student who is preparing for an exam.",
+      "risk_flags": [],
+      "if_part": null,
+      "then_part": null,
+      "body": "There exists at least one student who is preparing for an exam."
+    }
+  ]
+}<END_JSON>
+
+[END LLM CALL 1]
+
+================================================================================
+LLM CALL 2 | 2026-05-22T23:06:52 | provider=huggingface | model=Qwen/Qwen3.5-4B
+================================================================================
+[SYSTEM PROMPT]
+/no_think
+
+You are Stage 3-lite of a neurosymbolic logic parser.
+You are a JSON predicate-frame extractor, not a solver.
+
+Your job:
+For each CNL statement, identify only:
+- predicate names
+- predicate arguments
+- negation
+- rule relationship: antecedent vs consequent vs body
+- one main quantified variable when present
+
+Do NOT build recursive AST JSON. Python will build the AST deterministically.
+Do NOT solve the question.
+Do NOT add facts that are not in the premise.
+
+Output rules:
+- Output ONLY valid JSON.
+- First character must be {.
+- Do not write analysis.
+- Do not write explanations.
+- Do not write markdown.
+- Do not include comments.
+- End after the JSON object with <END_JSON>.
+
+Predicate rules:
+1. Predicate names must be lowercase snake_case.
+2. Do not put negation in predicate names. Use "negated": true.
+3. Use variables like x, y for generic quantified entities.
+4. Use constants like john, mary, tuan, quantum_lab for named entities.
+5. Every atom should have at least one argument.
+6. Reuse the same predicate name for the same concept across all premises.
+
+Frame shape:
+{
+  "frames": [
+    {
+      "premise_id": "P1",
+      "kind": "RULE",
+      "cnl": "...",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {"name": "student", "arguments": ["x"], "negated": false}
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {"name": "eligible", "arguments": ["x"], "negated": false}
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    }
+  ]
+}
+
+Use these fields by kind:
+- FACT: put all atoms in body. Use constants for named individuals.
+- EXISTS: put all asserted atoms in body and set variable.
+- FORALL: usually set antecedent to the class restriction and consequent to the asserted property.
+- RULE, ONLY_IF_RULE, NON_IF_RULE: set antecedent and consequent.
+- OBLIGATION_RULE: set antecedent for the situation and consequent for the obligated/permitted/forbidden predicate.
+  Use prefixes obligated_, permitted_, or forbidden_ on the consequent predicate name.
+- IFF: set antecedent and consequent.
+- META or UNKNOWN: set unsupported true unless the statement is clearly representable as flat atoms.
+
+Examples:
+
+Input:
+P1 [FORALL]: Every student is preparing for an exam.
+Output frame:
+{
+  "premise_id": "P1",
+  "kind": "FORALL",
+  "cnl": "Every student is preparing for an exam.",
+  "variable": "x",
+  "antecedent": {"connective": "and", "atoms": [{"name": "student", "arguments": ["x"], "negated": false}]},
+  "consequent": {"connective": "and", "atoms": [{"name": "preparing_for_exam", "arguments": ["x"], "negated": false}]},
+  "body": null,
+  "unsupported": false,
+  "notes": []
+}
+
+Input:
+P2 [RULE]: If a student does NOT ask questions, then the student does NOT attend tutorials.
+Output frame:
+{
+  "premise_id": "P2",
+  "kind": "RULE",
+  "cnl": "If a student does NOT ask questions, then the student does NOT attend tutorials.",
+  "variable": "x",
+  "antecedent": {"connective": "and", "atoms": [
+    {"name": "student", "arguments": ["x"], "negated": false},
+    {"name": "asks_questions", "arguments": ["x"], "negated": true}
+  ]},
+  "consequent": {"connective": "and", "atoms": [
+    {"name": "attends_tutorials", "arguments": ["x"], "negated": true}
+  ]},
+  "body": null,
+  "unsupported": false,
+  "notes": []
+}
+
+Input:
+P3 [EXISTS]: There exists a student who attends tutorials.
+Output frame:
+{
+  "premise_id": "P3",
+  "kind": "EXISTS",
+  "cnl": "There exists a student who attends tutorials.",
+  "variable": "x",
+  "antecedent": null,
+  "consequent": null,
+  "body": {"connective": "and", "atoms": [
+    {"name": "student", "arguments": ["x"], "negated": false},
+    {"name": "attends_tutorials", "arguments": ["x"], "negated": false}
+  ]},
+  "unsupported": false,
+  "notes": []
+}
+
+Return exactly one JSON object with the key "frames".
+Do not output anything before the JSON.
+Do not output anything after <END_JSON>.
+
+
+[USER PROMPT]
+P1 [FORALL]: Every student is preparing for an exam.
+P2 [RULE]: If a student is not asking questions, then the student is not attending tutorials.
+P3 [EXISTS]: There exists at least one student who is attending tutorials.
+P4 [META]: If (a student not asking questions implies they are not attending tutorials), then there exists at least one student who is attending tutorials.
+P5 [RULE]: If there exists at least one student who is attending tutorials, then if a student is not asking questions, the student is not attending tutorials.
+P6 [FORALL]: Every student is understanding the material.
+P7 [EXISTS]: There exists at least one student who is preparing for an exam.
+
+[MODEL OUTPUT]
+{
+  "frames": [
+    {
+      "premise_id": "P1",
+      "kind": "FORALL",
+      "cnl": "Every student is preparing for an exam.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "student",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "preparing_for_exam",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P2",
+      "kind": "RULE",
+      "cnl": "If a student is not asking questions, then the student is not attending tutorials.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "student",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          },
+          {
+            "name": "asks_questions",
+            "arguments": [
+              "x"
+            ],
+            "negated": true
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "attends_tutorials",
+            "arguments": [
+              "x"
+            ],
+            "negated": true
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P3",
+      "kind": "EXISTS",
+      "cnl": "There exists at least one student who is attending tutorials.",
+      "variable": "x",
+      "antecedent": null,
+      "consequent": null,
+      "body": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "student",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          },
+          {
+            "name": "attends_tutorials",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P4",
+      "kind": "META",
+      "cnl": "If (a student not asking questions implies they are not attending tutorials), then there exists at least one student who is attending tutorials.",
+      "variable": null,
+      "antecedent": null,
+      "consequent": null,
+      "body": null,
+      "unsupported": true,
+      "notes": []
+    },
+    {
+      "premise_id": "P5",
+      "kind": "RULE",
+      "cnl": "If there exists at least one student who is attending tutorials, then if a student is not asking questions, the student is not attending tutorials.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "student",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          },
+          {
+            "name": "attends_tutorials",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "student",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          },
+          {
+            "name": "asks_questions",
+            "arguments": [
+              "x"
+            ],
+            "negated": true
+          },
+          {
+            "name": "attends_tutorials",
+            "arguments": [
+              "x"
+            ],
+            "negated": true
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P6",
+      "kind": "FORALL",
+      "cnl": "Every student is understanding the material.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "student",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "understands_material",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P7",
+      "kind": "EXISTS",
+      "cnl": "There exists at least one student who is preparing for an exam.",
+      "variable": "x",
+      "antecedent": null,
+      "consequent": null,
+      "body": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "student",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          },
+          {
+            "name": "preparing_for_exam",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "unsupported": false,
+      "notes": []
+    }
+  ]
+}<END_JSON>
+
+[END LLM CALL 2]
+
+================================================================================
+LLM CALL 3 | 2026-05-22T23:10:20 | provider=huggingface | model=Qwen/Qwen3.5-4B
+================================================================================
+[SYSTEM PROMPT]
+/no_think
+
+You are Stage 3 of a neurosymbolic logic parser.
+You are a JSON transducer, not a solver.
+
+Your job:
+Compile CNL statements into typed recursive LogicNode AST JSON.
+
+You must NOT solve the question.
+You must NOT add facts that are not in the premise.
+You must preserve:
+- quantifiers
+- IF direction
+- only-if direction
+- iff direction
+- classical negation
+- modal uncertainty
+
+Allowed node types:
+atomic, and, or, not, implies, iff, forall, exists, equation
+
+Output rules:
+- Output ONLY valid JSON.
+- First character must be {.
+- Do not write analysis.
+- Do not write explanations.
+- Do not write markdown.
+- Do not include comments.
+- Do not output any node type outside the allowed node types.
+- End after the JSON object with <END_JSON>.
+
+Atomic predicate rules:
+1. Predicate names must be lowercase snake_case.
+2. Use variables like x, y for quantified rules.
+3. Use constants like john, mary, quantum_lab for named entities.
+4. Do not put "not" inside predicate names.
+   Correct: {"type":"not","children":[{"type":"atomic","name":"has_housing","arguments":["x"]}]}
+   Wrong: {"type":"atomic","name":"not_has_housing","arguments":["x"]}
+5. Reuse the same predicate name for the same concept across all premises.
+   Example: "requires extensive hyperparameter tuning", "has extensive hyperparameter tuning",
+   and "has been extensively tuned" should use one canonical predicate.
+6. Every atomic node MUST have at least 1 argument. Never produce {"type":"atomic","name":"foo","arguments":[]}.
+
+STRICT SHAPE RULES (CRITICAL — violating these causes validation failure):
+- forall/exists: MUST have exactly 1 child and a "variable" field.
+- implies: MUST have exactly 2 children (antecedent, consequent).
+- not: MUST have exactly 1 child.
+- and/or/iff: MUST have at least 2 children.
+- atomic: MUST have "name" (non-empty) and "arguments" (at least 1 element).
+
+Quantifier rules:
+- Every/All/Any -> forall
+- Some/At least one/A -> exists only when the sentence asserts existence
+- Generic rules usually become forall x: antecedent -> consequent
+
+Only-if rule:
+- "A only if B" means A -> B.
+
+IFF:
+- "A if and only if B" means A <-> B.
+
+Nested quantifier / Mixed scope rules:
+When a sentence mixes existential and universal quantifiers, nest them properly.
+Example: "If there exists a student who passes, then every teacher celebrates."
+AST:
+{
+  "type": "implies",
+  "children": [
+    {
+      "type": "exists",
+      "variable": "x",
+      "children": [
+        {"type": "and", "children": [
+          {"type": "atomic", "name": "student", "arguments": ["x"]},
+          {"type": "atomic", "name": "passes", "arguments": ["x"]}
+        ]}
+      ]
+    },
+    {
+      "type": "forall",
+      "variable": "y",
+      "children": [
+        {"type": "implies", "children": [
+          {"type": "atomic", "name": "teacher", "arguments": ["y"]},
+          {"type": "atomic", "name": "celebrates", "arguments": ["y"]}
+        ]}
+      ]
+    }
+  ]
+}
+
+Obligation / Deontic rules:
+For OBLIGATION_RULE premises, represent the obligation using an "obligated_" prefix
+on the predicate name within a forall wrapper.
+Example: "It is mandatory to wear goggles in science laboratories."
+AST:
+{
+  "type": "forall",
+  "variable": "x",
+  "children": [
+    {"type": "implies", "children": [
+      {"type": "atomic", "name": "in_science_laboratory", "arguments": ["x"]},
+      {"type": "atomic", "name": "obligated_wear_goggles", "arguments": ["x"]}
+    ]}
+  ]
+}
+
+META / Nested implication rules:
+For META premises with nested implications, preserve the nesting.
+Example: "If passing the exam implies graduation, then students who pass are eligible."
+AST:
+{
+  "type": "implies",
+  "children": [
+    {
+      "type": "forall",
+      "variable": "x",
+      "children": [
+        {"type": "implies", "children": [
+          {"type": "atomic", "name": "passes_exam", "arguments": ["x"]},
+          {"type": "atomic", "name": "graduates", "arguments": ["x"]}
+        ]}
+      ]
+    },
+    {
+      "type": "forall",
+      "variable": "y",
+      "children": [
+        {"type": "implies", "children": [
+          {"type": "atomic", "name": "passes_exam", "arguments": ["y"]},
+          {"type": "atomic", "name": "eligible", "arguments": ["y"]}
+        ]}
+      ]
+    }
+  ]
+}
+
+Return JSON only in this exact shape:
+{
+  "compiled": [
+    {
+      "premise_id": "P1",
+      "kind": "RULE",
+      "cnl": "...",
+      "ast": {...},
+      "solver_ready": false,
+      "needs_review": false,
+      "unsupported": false,
+      "notes": []
+    }
+  ]
+}
+
+Do not output anything after <END_JSON>.
+
+
+[USER PROMPT]
+Reference examples (use these as structural guidance):
+CNL:
+There exists at least one student who is prepared.
+AST:
+{"type": "exists", "variable": "x", "children": [{"type": "atomic", "name": "prepared", "arguments": ["x"]}]}
+
+CNL:
+Every student is eligible.
+AST:
+{"type": "forall", "variable": "x", "children": [{"type": "implies", "children": [{"type": "atomic", "name": "student", "arguments": ["x"]}, {"type": "atomic", "name": "eligible", "arguments": ["x"]}]}]}
+
+CNL:
+If a student does not receive a recommendation letter, then the student does not ask questions.
+AST:
+{"type": "forall", "variable": "x", "children": [{"type": "implies", "children": [{"type": "not", "children": [{"type": "atomic", "name": "receives_recommendation", "arguments": ["x"]}]}, {"type": "not", "children": [{"type": "atomic", "name": "asks_questions", "arguments": ["x"]}]}]}]}
+
+Now compile these CNL statements into AST:
+P4 [META]: If (a student not asking questions implies they are not attending tutorials), then there exists at least one student who is attending tutorials.
+
+
+[MODEL OUTPUT]
+{
+  "compiled": [
+    {
+      "premise_id": "P4",
+      "kind": "META",
+      "cnl": "If (a student not asking questions implies they are not attending tutorials), then there exists at least one student who is attending tutorials.",
+      "ast": {
+        "type": "implies",
+        "children": [
+          {
+            "type": "forall",
+            "variable": "x",
+            "children": [
+              {
+                "type": "implies",
+                "children": [
+                  {
+                    "type": "and",
+                    "children": [
+                      {
+                        "type": "atomic",
+                        "name": "student",
+                        "arguments": ["x"]
+                      },
+                      {
+                        "type": "not",
+                        "children": [
+                          {
+                            "type": "atomic",
+                            "name": "asks_questions",
+                            "arguments": ["x"]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "not",
+                    "children": [
+                      {
+                        "type": "atomic",
+                        "name": "attends_tutorials",
+                        "arguments": ["x"]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "exists",
+            "variable": "y",
+            "children": [
+              {
+                "type": "and",
+                "children": [
+                  {
+                    "type": "atomic",
+                    "name": "student",
+                    "arguments": ["y"]
+                  },
+                  {
+                    "type": "atomic",
+                    "name": "attends_tutorials",
+                    "arguments": ["y"]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "solver_ready": false,
+      "needs_review": false,
+      "unsupported": false,
+      "notes": []
+    }
+  ]
+}<END_JSON>
+
+[END LLM CALL 3]
+
+================================================================================
+LLM CALL 4 | 2026-05-22T23:11:46 | provider=huggingface | model=Qwen/Qwen3.5-4B
+================================================================================
+[SYSTEM PROMPT]
+/no_think
+
+You are a question parser for a neurosymbolic logic pipeline.
+You are a JSON transducer, not a solver.
+
+Your job:
+Parse a question (and its choices, if any) into structured LogicNode AST.
+
+You must NOT solve the question.
+You must NOT use premise facts to rewrite choices.
+You only parse the question and choices into AST structure.
+
+Allowed LogicNode type values:
+atomic, and, or, not, implies, iff, forall, exists, equation
+
+Forbidden type values:
+inference, claim, choice, statement, because, explanation, predicate
+
+Predicate naming rules:
+1. Predicate names must be lowercase snake_case.
+2. Use constants for named entities (e.g., john, mina, alphanet).
+3. Do not put "not" inside predicate names - use a NOT node.
+4. If known predicate names are provided, reuse a known predicate when it fits the same meaning.
+5. Do not invent synonyms for a known predicate.
+
+Reason clauses:
+- For multiple-choice entailment questions, parse only the claim being inferred.
+- Ignore "because ..." reason text unless the question asks whether the explanation itself is valid.
+- Do not create a "because" or "inference" node.
+
+For yes/no questions, return a "query" node representing what is being asked.
+For multiple-choice questions, return a "choices" map with each choice as a LogicNode.
+
+Output rules:
+- Output ONLY valid JSON.
+- First character must be {.
+- Do not write analysis.
+- Do not write explanations.
+- Do not write markdown.
+- Do not include comments.
+- Every query or choice value must be a valid LogicNode using only the allowed node types.
+- End after the JSON object with <END_JSON>.
+
+Return this exact JSON shape:
+{
+  "question": "the original question text",
+  "query": {...} or null,
+  "choices": {
+    "A": {...},
+    "B": {...}
+  }
+}
+
+If there are no choices, set "choices" to {}.
+If it's a multiple-choice question, set "query" to null.
+
+Examples:
+Choice text: "The AlphaNet model does not require hyperparameter tuning because it achieves high accuracy."
+Choice AST:
+{
+  "type": "not",
+  "children": [
+    {"type": "atomic", "name": "requires_hyperparameter_tuning", "arguments": ["alphanet"]}
+  ]
+}
+
+Choice text: "The AlphaNet model has been extensively tuned because it achieves high accuracy and processes data quickly."
+Choice AST:
+{"type": "atomic", "name": "has_extensive_hyperparameter_tuning", "arguments": ["alphanet"]}
+
+Do not output anything after <END_JSON>.
+
+
+[USER PROMPT]
+Question: Based on the above premises, is the following statement true? Statement: If there exists at least one student who is attending tutorials, then if a student is not asking questions, they are not attending tutorials, and every student is preparing for an exam.
+
+Known predicate names from premises:
+- asks_questions
+- attends_tutorials
+- preparing_for_exam
+- student
+- understands_material
+
+[MODEL OUTPUT]
+{
+  "question": "Based on the above premises, is the following statement true? Statement: If there exists at least one student who is attending tutorials, then if a student is not asking questions, they are not attending tutorials, and every student is preparing for an exam.",
+  "query": {
+    "type": "iff",
+    "children": [
+      {
+        "type": "exists",
+        "children": [
+          {
+            "type": "student",
+            "children": [
+              {
+                "type": "attends_tutorials",
+                "children": [
+                    {
+                        "type": "student",
+                        "children": []
+                    }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "and",
+        "children": [
+          {
+            "type": "forall",
+            "children": [
+                {
+                    "type": "student",
+                    "children": [
+                        {
+                            "type": "not",
+                            "children": [
+                                {
+                                    "type": "student",
+                                    "children": [
+                                        {
+                                            "type": "asks_questions",
+                                            "children": [
+                                                {
+                                                    "type": "student",
+                                                    "children": []
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "type": "not",
+                            "children": [
+                                {
+                                    "type": "student",
+                                    "children": [
+                                        {
+                                            "type": "attends_tutorials",
+                                            "children": [
+                                                {
+                                                    "type": "student",
+                                                    "children": []
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+
+[END LLM CALL 4]

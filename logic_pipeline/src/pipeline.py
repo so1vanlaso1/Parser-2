@@ -15,6 +15,7 @@ from .predicate_canonicalizer import (
     canonicalize_stage3,
     collect_predicate_names,
 )
+from .meta_formula import is_direct_solver_ready_formula, resolve_meta_premises
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,9 @@ class LogicPipeline:
         # ── Stage 3: AST Compilation (Stage 2 RAG is embedded) ──────────
         logger.info("Stage 3: Compiling CNL to AST...")
         t3 = time.time()
-        stage3_output = canonicalize_stage3(self.stage3.compile(stage1_output))
+        stage3_output = resolve_meta_premises(
+            canonicalize_stage3(self.stage3.compile(stage1_output))
+        )
         logger.info("Stage 3 complete (%.1fs) — %d compiled", time.time() - t3, len(stage3_output.compiled))
 
         # ── Stage 4 + 5: Validate & Repair Loop ────────────────────────
@@ -92,7 +95,9 @@ class LogicPipeline:
             if attempt < self.config.max_repair_attempts:
                 logger.info("Stage 5: Repairing...")
                 t5 = time.time()
-                stage3_output = canonicalize_stage3(self.repair_loop.repair(stage3_output, report))
+                stage3_output = resolve_meta_premises(
+                    canonicalize_stage3(self.repair_loop.repair(stage3_output, report))
+                )
                 logger.info("Repair complete (%.1fs)", time.time() - t5)
             else:
                 final_report = report
@@ -117,14 +122,31 @@ class LogicPipeline:
 
         # ── Classify solver readiness ───────────────────────────────────
         for item in stage3_output.compiled:
+            if item.kind == "META":
+                item.direct_solver_ready = (
+                    is_direct_solver_ready_formula(item.formula_tree)
+                    if item.formula_tree
+                    else False
+                )
+                item.solver_ready = False
+                item.needs_review = not item.meta_resolvable or item.unsupported
+                continue
+
+            item.direct_solver_ready = is_direct_solver_ready_formula(item.formula_tree or item.ast)
+
             status = classify_solver_readiness(
                 item.kind,
                 item.ast.type,
                 [f.strip() for f in (item.notes or [])],
             )
-            item.solver_ready = (status == "solver_ready")
-            item.needs_review = (status == "needs_review")
+            item.solver_ready = (status == "solver_ready" and item.direct_solver_ready)
+            item.needs_review = (status == "needs_review") or (
+                status == "solver_ready" and not item.direct_solver_ready
+            )
             item.unsupported = (status == "unsupported")
+            item.solver_export = [
+                item.ast.model_dump(exclude_none=True)
+            ] if item.solver_ready else []
 
         # ── Question Parsing ────────────────────────────────────────────
         question_parse: QuestionParse | None = None

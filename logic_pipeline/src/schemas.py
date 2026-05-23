@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Optional, Union
+from typing import Any, Literal, Optional, Union
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -106,6 +106,18 @@ class PredicateFrameOutput(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Formula graph models
+# ---------------------------------------------------------------------------
+
+class FlatAtom(BaseModel):
+    atom_id: str
+    predicate: str
+    arguments: list[str] = Field(default_factory=list)
+    negated: bool = False
+    source_premise_id: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
 # Core AST node
 # ---------------------------------------------------------------------------
 
@@ -184,6 +196,12 @@ class CompiledPremise(BaseModel):
     solver_ready: bool = False
     needs_review: bool = False
     unsupported: bool = False
+    direct_solver_ready: bool = False
+    meta_resolvable: bool = False
+    flat_atoms: list[FlatAtom] = Field(default_factory=list)
+    formula_tree: Optional[dict[str, Any]] = None
+    solver_export: list[Any] = Field(default_factory=list)
+    meta_links: list[dict[str, Any]] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
 
 

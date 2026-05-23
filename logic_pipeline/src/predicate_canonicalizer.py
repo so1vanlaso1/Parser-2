@@ -32,6 +32,8 @@ def canonicalize_node(node: LogicNode) -> LogicNode:
 def canonicalize_stage3(output: Stage3Output) -> Stage3Output:
     for premise in output.compiled:
         canonicalize_node(premise.ast)
+        for atom in premise.flat_atoms:
+            atom.predicate = canonicalize_predicate_name(atom.predicate)
     return output
 
 

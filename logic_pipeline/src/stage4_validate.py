@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 
 from .schemas import LogicNode, Stage3Output
+from .meta_formula import contains_formula_level_node, is_direct_solver_ready_formula
 
 
 @dataclass
@@ -237,3 +238,6 @@ def classify_solver_readiness(kind: str, ast_type: str, risk_flags: list[str]) -
 
     return "unsupported"
 
+
+def is_direct_solver_ready(ast) -> bool:
+    return is_direct_solver_ready_formula(ast)

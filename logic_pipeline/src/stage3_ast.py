@@ -3,6 +3,7 @@ from .json_utils import extract_json_object
 from .llm_client import ChatModel
 from .schemas import (
     CompiledPremise,
+    CNLStatement,
     LogicNode,
     PredicateFrame,
     PredicateFrameOutput,
@@ -11,6 +12,14 @@ from .schemas import (
     Stage3Output,
 )
 from .stage2_rag import StructuralRAG
+from .meta_formula import (
+    atomize_leaf_with_llm,
+    formula_tree_to_logic_node,
+    is_direct_solver_ready_formula,
+    is_higher_order_or_meta,
+    process_formula_node,
+    split_meta_formula,
+)
 
 
 STAGE3_FRAME_SYSTEM_PROMPT = """\
@@ -350,6 +359,17 @@ class ASTCompiler:
             frame = frame_by_id.get(statement.premise_id)
             if frame is not None:
                 frame = frame.model_copy(update={"kind": statement.kind_hint, "cnl": statement.cnl})
+
+            if self._statement_is_meta(statement, frame):
+                try:
+                    compiled_by_id[statement.premise_id] = self._compile_meta_premise(statement)
+                except Exception as exc:
+                    compiled_by_id[statement.premise_id] = self._build_unsupported_meta_premise(
+                        statement,
+                        str(exc),
+                    )
+                continue
+
             if frame is None or self._frame_needs_fallback(frame):
                 fallback_statements.append(statement)
                 continue
@@ -369,7 +389,95 @@ class ASTCompiler:
         )
 
     def _frame_needs_fallback(self, frame: PredicateFrame) -> bool:
-        return frame.unsupported or frame.kind in {"META", "UNKNOWN"}
+        return frame.unsupported or frame.kind == "UNKNOWN"
+
+    def _statement_is_meta(
+        self,
+        statement: CNLStatement,
+        frame: PredicateFrame | None,
+    ) -> bool:
+        return (
+            statement.kind_hint == "META"
+            or (frame is not None and frame.kind == "META")
+            or is_higher_order_or_meta(statement.cnl)
+            or is_higher_order_or_meta(statement.original)
+        )
+
+    def _compile_meta_premise(self, statement: CNLStatement) -> CompiledPremise:
+        text_tree = split_meta_formula(statement.cnl or statement.original)
+
+        def llm_atomizer(phrase: str, variable: str):
+            return atomize_leaf_with_llm(
+                phrase,
+                variable,
+                self.llm,
+                max_new_tokens=getattr(self.config, "stage3_meta_atomizer_max_new_tokens", 300),
+            )
+
+        formula_tree, flat_atoms = process_formula_node(
+            text_tree,
+            llm_atomizer,
+            premise_id=statement.premise_id,
+        )
+        ast = formula_tree_to_logic_node(formula_tree, flat_atoms)
+        notes = list(statement.risk_flags)
+        if "nested_logic" not in notes:
+            notes.append("nested_logic")
+
+        return CompiledPremise(
+            premise_id=statement.premise_id,
+            kind="META",
+            cnl=statement.cnl,
+            ast=ast,
+            solver_ready=False,
+            needs_review=True,
+            unsupported=False,
+            direct_solver_ready=is_direct_solver_ready_formula(formula_tree),
+            meta_resolvable=False,
+            flat_atoms=flat_atoms,
+            formula_tree=formula_tree,
+            solver_export=[],
+            meta_links=[],
+            notes=notes,
+        )
+
+    def _build_unsupported_meta_premise(
+        self,
+        statement: CNLStatement,
+        reason: str,
+    ) -> CompiledPremise:
+        notes = list(statement.risk_flags)
+        for note in ["nested_logic", f"meta_split_failed: {reason}"]:
+            if note not in notes:
+                notes.append(note)
+
+        return CompiledPremise(
+            premise_id=statement.premise_id,
+            kind="META",
+            cnl=statement.cnl,
+            ast=LogicNode(
+                type="atomic",
+                name="unsupported_meta_formula",
+                arguments=[statement.premise_id.lower()],
+                source_premise_id=statement.premise_id,
+            ),
+            solver_ready=False,
+            needs_review=True,
+            unsupported=True,
+            direct_solver_ready=False,
+            meta_resolvable=False,
+            flat_atoms=[],
+            formula_tree=None,
+            solver_export=[],
+            meta_links=[
+                {
+                    "type": "resolution",
+                    "status": "unresolved",
+                    "reason": "meta formula could not be split safely",
+                }
+            ],
+            notes=notes,
+        )
 
     def _build_compiled_premise(self, frame: PredicateFrame) -> CompiledPremise:
         return CompiledPremise(

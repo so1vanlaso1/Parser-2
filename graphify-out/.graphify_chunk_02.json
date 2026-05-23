@@ -1,0 +1,350 @@
+{
+  "nodes": [
+    {
+      "id": "code.stage5_repair",
+      "label": "stage5_repair.py",
+      "file_type": "code",
+      "path": "logic_pipeline/src/stage5_repair.py"
+    },
+    {
+      "id": "code.src_init",
+      "label": "__init__.py",
+      "file_type": "code",
+      "path": "logic_pipeline/src/__init__.py"
+    },
+    {
+      "id": "code.test_pipeline_fixes",
+      "label": "test_pipeline_fixes.py",
+      "file_type": "code",
+      "path": "logic_pipeline/tests/test_pipeline_fixes.py"
+    },
+    {
+      "id": "code.test_schemas",
+      "label": "test_schemas.py",
+      "file_type": "code",
+      "path": "logic_pipeline/tests/test_schemas.py"
+    },
+    {
+      "id": "code.test_stage3_frame_compiler",
+      "label": "test_stage3_frame_compiler.py",
+      "file_type": "code",
+      "path": "logic_pipeline/tests/test_stage3_frame_compiler.py"
+    },
+    {
+      "id": "code.test_validator",
+      "label": "test_validator.py",
+      "file_type": "code",
+      "path": "logic_pipeline/tests/test_validator.py"
+    },
+    {
+      "id": "code.tests_init",
+      "label": "tests/__init__.py",
+      "file_type": "code",
+      "path": "logic_pipeline/tests/__init__.py"
+    },
+    {
+      "id": "doc.haha",
+      "label": "haha.md",
+      "file_type": "document",
+      "path": "haha.md"
+    },
+    {
+      "id": "doc.improvement",
+      "label": "improvement.md",
+      "file_type": "document",
+      "path": "improvement.md"
+    },
+    {
+      "id": "doc.guide",
+      "label": "neurosymbolic_logic_parser_full_implementation_guide.md",
+      "file_type": "document",
+      "path": "neurosymbolic_logic_parser_full_implementation_guide.md"
+    },
+    {
+      "id": "doc.readme",
+      "label": "README.md",
+      "file_type": "document",
+      "path": "README.md"
+    },
+    {
+      "id": "doc.requirements",
+      "label": "requirements.txt",
+      "file_type": "document",
+      "path": "requirements.txt"
+    },
+    {
+      "id": "doc.walkthrough",
+      "label": "walkthrough.md",
+      "file_type": "document",
+      "path": "walkthrough.md"
+    },
+    {
+      "id": "doc.llm_io",
+      "label": "llm_io.txt",
+      "file_type": "document",
+      "path": "logic_pipeline/artifacts/llm_io.txt"
+    },
+    {
+      "id": "concept.repair_loop",
+      "label": "Stage 5 Repair Loop",
+      "file_type": "rationale",
+      "category": "concept",
+      "rationale": "Repairs invalid Stage 3 AST JSON using validator issue feedback; does not solve the logic task."
+    },
+    {
+      "id": "concept.lenient_schema",
+      "label": "Lenient schema + strict validator split",
+      "file_type": "rationale",
+      "category": "concept",
+      "rationale": "Invalid shapes are accepted in schema with warnings so Stage 4 validation and Stage 5 repair can correct them without crashing."
+    },
+    {
+      "id": "concept.frame_compilation",
+      "label": "Frame-based AST compilation",
+      "file_type": "rationale",
+      "category": "concept",
+      "rationale": "Stage 3 compiles CNL into frame structures that are transformed into typed LogicNode AST."
+    },
+    {
+      "id": "concept.validator_checks",
+      "label": "Validator checks",
+      "file_type": "rationale",
+      "category": "concept",
+      "rationale": "Checks include unbound variables, negation consistency, node shape constraints, and solver-readiness classification."
+    },
+    {
+      "id": "concept.parser_only_pipeline",
+      "label": "Parser-only neurosymbolic pipeline",
+      "file_type": "rationale",
+      "category": "concept",
+      "rationale": "Pipeline outputs validated AST and classifications; solver stages are intentionally excluded."
+    },
+    {
+      "id": "concept.hf_qwen_model",
+      "label": "Hugging Face Qwen/Qwen3.5-4B backend",
+      "file_type": "rationale",
+      "category": "concept",
+      "rationale": "Default backend in run docs; uses quantized Transformers path for parsing stages."
+    }
+  ],
+  "edges": [
+    {
+      "source": "code.stage5_repair",
+      "target": "concept.repair_loop",
+      "relation": "implements",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "code.stage5_repair",
+      "target": "concept.validator_checks",
+      "relation": "references",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "code.test_schemas",
+      "target": "concept.lenient_schema",
+      "relation": "references",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "code.test_validator",
+      "target": "concept.validator_checks",
+      "relation": "implements",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "code.test_stage3_frame_compiler",
+      "target": "concept.frame_compilation",
+      "relation": "references",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "code.test_pipeline_fixes",
+      "target": "code.test_validator",
+      "relation": "conceptually_related_to",
+      "classification": "INFERRED",
+      "confidence_score": 0.85
+    },
+    {
+      "source": "code.test_pipeline_fixes",
+      "target": "code.test_schemas",
+      "relation": "conceptually_related_to",
+      "classification": "INFERRED",
+      "confidence_score": 0.75
+    },
+    {
+      "source": "doc.improvement",
+      "target": "concept.lenient_schema",
+      "relation": "rationale_for",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "doc.improvement",
+      "target": "code.test_validator",
+      "relation": "references",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "doc.improvement",
+      "target": "code.test_schemas",
+      "relation": "references",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "doc.improvement",
+      "target": "code.stage5_repair",
+      "relation": "references",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "doc.haha",
+      "target": "doc.requirements",
+      "relation": "references",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "doc.haha",
+      "target": "concept.hf_qwen_model",
+      "relation": "references",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "doc.walkthrough",
+      "target": "concept.parser_only_pipeline",
+      "relation": "implements",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "doc.walkthrough",
+      "target": "concept.repair_loop",
+      "relation": "references",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "doc.walkthrough",
+      "target": "doc.llm_io",
+      "relation": "references",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "doc.guide",
+      "target": "concept.repair_loop",
+      "relation": "references",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "doc.guide",
+      "target": "concept.validator_checks",
+      "relation": "references",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "doc.guide",
+      "target": "concept.frame_compilation",
+      "relation": "references",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "doc.readme",
+      "target": "concept.parser_only_pipeline",
+      "relation": "references",
+      "classification": "INFERRED",
+      "confidence_score": 0.65
+    },
+    {
+      "source": "doc.requirements",
+      "target": "concept.hf_qwen_model",
+      "relation": "conceptually_related_to",
+      "classification": "INFERRED",
+      "confidence_score": 0.85
+    },
+    {
+      "source": "doc.guide",
+      "target": "doc.walkthrough",
+      "relation": "semantically_similar_to",
+      "classification": "AMBIGUOUS",
+      "confidence_score": 0.2
+    },
+    {
+      "source": "doc.llm_io",
+      "target": "concept.repair_loop",
+      "relation": "shares_data_with",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0
+    },
+    {
+      "source": "code.tests_init",
+      "target": "code.test_validator",
+      "relation": "references",
+      "classification": "INFERRED",
+      "confidence_score": 0.55
+    },
+    {
+      "source": "code.src_init",
+      "target": "concept.parser_only_pipeline",
+      "relation": "conceptually_related_to",
+      "classification": "AMBIGUOUS",
+      "confidence_score": 0.15
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "h.validation_repair_loop",
+      "relation": "shares_data_with",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0,
+      "members": [
+        "code.test_schemas",
+        "code.test_validator",
+        "code.stage5_repair",
+        "doc.improvement"
+      ],
+      "semantics": "Schema leniency, validator checks, and repair loop are coordinated to prevent hard parse crashes and enable structured repair."
+    },
+    {
+      "id": "h.pipeline_documentation_cluster",
+      "relation": "conceptually_related_to",
+      "classification": "EXTRACTED",
+      "confidence_score": 1.0,
+      "members": [
+        "doc.haha",
+        "doc.readme",
+        "doc.walkthrough",
+        "doc.guide"
+      ],
+      "semantics": "Runbooks and architecture docs describe setup, execution, and staged parsing design."
+    },
+    {
+      "id": "h.stage3_to_stage5_feedback",
+      "relation": "shares_data_with",
+      "classification": "INFERRED",
+      "confidence_score": 0.75,
+      "members": [
+        "code.test_stage3_frame_compiler",
+        "concept.frame_compilation",
+        "concept.validator_checks",
+        "concept.repair_loop"
+      ],
+      "semantics": "Compiled AST output is validated and can feed into repair retries when shape or semantic constraints fail."
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

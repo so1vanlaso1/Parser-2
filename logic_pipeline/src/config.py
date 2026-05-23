@@ -17,6 +17,7 @@ class PipelineConfig:
     stage3_max_new_tokens: int = 700
     enable_frame_ast_compiler: bool = True
     stage3_frame_max_new_tokens: int = 500
+    stage3_meta_atomizer_max_new_tokens: int = 300
     question_max_new_tokens: int = 400
     repair_max_new_tokens: int = 700
 

@@ -42,6 +42,8 @@ def canonicalize_question_parse(question: QuestionParse) -> QuestionParse:
         canonicalize_node(question.query)
     for choice in question.choices.values():
         canonicalize_node(choice)
+    for atom in question.flat_atoms:
+        atom.predicate = canonicalize_predicate_name(atom.predicate)
     return question
 
 

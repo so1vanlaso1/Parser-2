@@ -198,6 +198,10 @@ class CompiledPremise(BaseModel):
     unsupported: bool = False
     direct_solver_ready: bool = False
     meta_resolvable: bool = False
+    meta_resolved: bool = False
+    solver_ready_after_meta_resolution: bool = False
+    add_to_solver: bool = False
+    resolution: Optional[str] = None
     flat_atoms: list[FlatAtom] = Field(default_factory=list)
     formula_tree: Optional[dict[str, Any]] = None
     solver_export: list[Any] = Field(default_factory=list)
@@ -217,6 +221,12 @@ class QuestionParse(BaseModel):
     question: str
     choices: dict[str, LogicNode] = Field(default_factory=dict)
     query: Optional[LogicNode] = None
+    query_type: str = "UNKNOWN"
+    direct_solver_ready: bool = False
+    formula_tree: Optional[dict[str, Any]] = None
+    flat_atoms: list[FlatAtom] = Field(default_factory=list)
+    unsupported: bool = False
+    notes: list[str] = Field(default_factory=list)
 
 
 class FullParseResult(BaseModel):

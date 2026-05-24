@@ -1,9 +1,10 @@
 import json
 
 from src.config import PipelineConfig
-from src.meta_formula import resolve_meta_premises
+from src.meta_formula import formula_tree_to_logic_node, resolve_meta_premises
 from src.predicate_canonicalizer import canonicalize_stage3
-from src.schemas import CNLStatement, Stage1Output
+from src.question_parser import QuestionParser
+from src.schemas import CompiledPremise, CNLStatement, FlatAtom, LogicNode, Stage1Output, Stage3Output
 from src.stage3_ast import ASTCompiler
 
 
@@ -350,3 +351,239 @@ def test_meta_resolver_marks_p4_p5_style_formulas_redundant():
     assert by_id["P5"].solver_export == []
     assert any(link.get("status") == "redundant" for link in by_id["P4"].meta_links)
     assert any(link.get("status") == "redundant" for link in by_id["P5"].meta_links)
+
+
+def test_meta_resolver_marks_redundant_formula_without_solver_export():
+    output = resolve_meta_premises(
+        Stage3Output(
+            compiled=[
+                _normal_premise("P1", _rule("a", "b")),
+                _normal_premise("P2", _fact("c")),
+                _meta_premise(
+                    "P3",
+                    {"type": "implies", "children": ["P3_A1", "P3_A2"]},
+                    "P3_A3",
+                    [
+                        _flat("P3_A1", "a"),
+                        _flat("P3_A2", "b"),
+                        _flat("P3_A3", "c"),
+                    ],
+                ),
+            ]
+        )
+    )
+
+    meta = output.compiled[2]
+    assert meta.meta_resolved is True
+    assert meta.resolution == "redundant_formula_link"
+    assert meta.solver_ready_after_meta_resolution is True
+    assert meta.add_to_solver is False
+    assert meta.solver_export == []
+
+
+def test_meta_resolver_materializes_consequent_only():
+    output = resolve_meta_premises(
+        Stage3Output(
+            compiled=[
+                _normal_premise("P1", _rule("a", "b")),
+                _meta_premise(
+                    "P2",
+                    {"type": "implies", "children": ["P2_A1", "P2_A2"]},
+                    "P2_A3",
+                    [
+                        _flat("P2_A1", "a"),
+                        _flat("P2_A2", "b"),
+                        _flat("P2_A3", "c"),
+                    ],
+                ),
+            ]
+        )
+    )
+
+    meta = output.compiled[1]
+    assert meta.meta_resolved is True
+    assert meta.resolution == "materialized_consequent"
+    assert meta.solver_ready_after_meta_resolution is True
+    assert meta.add_to_solver is True
+    assert [item["name"] for item in meta.solver_export] == ["c"]
+
+
+def test_meta_resolver_leaves_unmatched_meta_unresolved():
+    output = resolve_meta_premises(
+        Stage3Output(
+            compiled=[
+                _normal_premise("P1", _fact("a")),
+                _meta_premise(
+                    "P2",
+                    "P2_A1",
+                    "P2_A2",
+                    [
+                        _flat("P2_A1", "b"),
+                        _flat("P2_A2", "c"),
+                    ],
+                ),
+            ]
+        )
+    )
+
+    meta = output.compiled[1]
+    assert meta.meta_resolved is False
+    assert meta.resolution == "unresolved"
+    assert meta.add_to_solver is False
+    assert meta.solver_export == []
+
+
+def test_meta_resolver_reaches_fixed_point_for_materialized_chain():
+    output = resolve_meta_premises(
+        Stage3Output(
+            compiled=[
+                _normal_premise("P1", _fact("a")),
+                _meta_premise(
+                    "P2",
+                    "P2_A1",
+                    "P2_A2",
+                    [_flat("P2_A1", "a"), _flat("P2_A2", "b")],
+                ),
+                _meta_premise(
+                    "P3",
+                    "P3_A1",
+                    "P3_A2",
+                    [_flat("P3_A1", "b"), _flat("P3_A2", "c")],
+                ),
+                _meta_premise(
+                    "P4",
+                    "P4_A1",
+                    "P4_A2",
+                    [_flat("P4_A1", "c"), _flat("P4_A2", "d")],
+                ),
+            ]
+        )
+    )
+
+    by_id = {item.premise_id: item for item in output.compiled}
+    assert by_id["P2"].resolution == "materialized_consequent"
+    assert by_id["P3"].resolution == "materialized_consequent"
+    assert by_id["P4"].resolution == "materialized_consequent"
+    assert by_id["P4"].solver_export[0]["name"] == "d"
+
+
+def test_meta_flat_atoms_do_not_become_solver_facts_by_themselves():
+    output = resolve_meta_premises(
+        Stage3Output(
+            compiled=[
+                _normal_premise("P1", _fact("a")),
+                _meta_premise(
+                    "P2",
+                    "P2_A1",
+                    "P2_A2",
+                    [_flat("P2_A1", "a"), _flat("P2_A2", "b")],
+                ),
+            ]
+        )
+    )
+
+    meta = output.compiled[1]
+    assert len(meta.flat_atoms) == 2
+    assert len(meta.solver_export) == 1
+    assert meta.solver_export[0]["name"] == "b"
+
+
+def test_meta_question_uses_formula_tree_path():
+    parser = QuestionParser(
+        PipelineConfig(max_new_tokens=4096, llm_live_trace=False),
+        FakeLLM(
+            [
+                {
+                    "atoms": [
+                        {"predicate": "student", "arguments": ["y"], "negated": False},
+                        {
+                            "predicate": "attends_tutorials",
+                            "arguments": ["y"],
+                            "negated": False,
+                        },
+                    ]
+                },
+                {
+                    "atoms": [
+                        {"predicate": "student", "arguments": ["x"], "negated": False},
+                        {
+                            "predicate": "asks_questions",
+                            "arguments": ["x"],
+                            "negated": True,
+                        },
+                    ]
+                },
+                {
+                    "atoms": [
+                        {
+                            "predicate": "attends_tutorials",
+                            "arguments": ["x"],
+                            "negated": True,
+                        }
+                    ]
+                },
+            ]
+        ),
+    )
+
+    parsed = parser.parse(
+        "Statement: If there exists one student attending tutorials, "
+        "then if a student is not asking questions, they are not attending tutorials."
+    )
+
+    assert parsed.query_type == "META_QUERY"
+    assert parsed.direct_solver_ready is False
+    assert parsed.query is not None
+    assert parsed.formula_tree["type"] == "implies"
+
+
+def _normal_premise(premise_id: str, ast: LogicNode) -> CompiledPremise:
+    return CompiledPremise(
+        premise_id=premise_id,
+        kind="FACT" if ast.type == "atomic" else "RULE",
+        cnl=premise_id,
+        ast=ast,
+    )
+
+
+def _meta_premise(
+    premise_id: str,
+    antecedent,
+    consequent,
+    flat_atoms: list[FlatAtom],
+) -> CompiledPremise:
+    formula_tree = {"type": "implies", "children": [antecedent, consequent]}
+    return CompiledPremise(
+        premise_id=premise_id,
+        kind="META",
+        cnl=premise_id,
+        ast=formula_tree_to_logic_node(formula_tree, flat_atoms),
+        solver_ready=False,
+        needs_review=True,
+        direct_solver_ready=False,
+        flat_atoms=flat_atoms,
+        formula_tree=formula_tree,
+    )
+
+
+def _flat(atom_id: str, predicate: str) -> FlatAtom:
+    return FlatAtom(
+        atom_id=atom_id,
+        predicate=predicate,
+        arguments=["john"],
+        source_premise_id=atom_id.split("_", maxsplit=1)[0],
+    )
+
+
+def _fact(predicate: str) -> LogicNode:
+    return LogicNode(type="atomic", name=predicate, arguments=["john"])
+
+
+def _rule(antecedent: str, consequent: str) -> LogicNode:
+    return LogicNode(
+        type="implies",
+        children=[
+            LogicNode(type="atomic", name=antecedent, arguments=["john"]),
+            LogicNode(type="atomic", name=consequent, arguments=["john"]),
+        ],
+    )

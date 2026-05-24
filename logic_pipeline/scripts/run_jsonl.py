@@ -133,6 +133,12 @@ def main():
                 stats["total_time"] += elapsed
 
                 ready = sum(1 for p in result.premises if p.solver_ready)
+                direct_ready = sum(1 for p in result.premises if p.direct_solver_ready)
+                meta_resolved = sum(1 for p in result.premises if p.meta_resolved)
+                ready_after_meta = sum(
+                    1 for p in result.premises if p.solver_ready_after_meta_resolution
+                )
+                add_to_solver = sum(1 for p in result.premises if p.add_to_solver)
                 review = sum(1 for p in result.premises if p.needs_review)
                 unsupported = sum(1 for p in result.premises if p.unsupported)
                 ok = result.status == "success"
@@ -145,6 +151,10 @@ def main():
                     "elapsed_seconds": round(elapsed, 2),
                     "premise_count": len(problem.premises),
                     "solver_ready": ready,
+                    "direct_solver_ready": direct_ready,
+                    "meta_resolved": meta_resolved,
+                    "solver_ready_after_meta_resolution": ready_after_meta,
+                    "add_to_solver": add_to_solver,
                     "needs_review": review,
                     "unsupported": unsupported,
                     "parse_result": result.model_dump(),

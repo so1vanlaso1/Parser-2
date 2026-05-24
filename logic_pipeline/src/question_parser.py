@@ -1,7 +1,17 @@
+import re
+
 from .config import PipelineConfig
 from .json_utils import extract_json_object
 from .llm_client import ChatModel
 from .schemas import QuestionParse
+from .meta_formula import (
+    atomize_leaf_with_llm,
+    formula_tree_to_logic_node,
+    is_direct_solver_ready_formula,
+    is_higher_order_or_meta,
+    process_formula_node,
+    split_meta_formula,
+)
 
 
 QUESTION_PARSER_SYSTEM_PROMPT = """\
@@ -93,7 +103,10 @@ class QuestionParser:
         known_predicates: list[str] | None = None,
     ) -> QuestionParse:
         if not question_text:
-            return QuestionParse(question="")
+            return QuestionParse(question="", query_type="EMPTY_QUERY")
+
+        if not choices and is_higher_order_or_meta(_extract_meta_statement(question_text)):
+            return self._parse_meta_question(question_text)
 
         user_content = f"Question: {question_text}"
         if known_predicates:
@@ -109,4 +122,67 @@ class QuestionParser:
             max_new_tokens=self.config.question_max_new_tokens,
         )
         data = extract_json_object(raw_text)
-        return QuestionParse.model_validate(data)
+        parsed = QuestionParse.model_validate(data)
+        return _classify_question_parse(parsed)
+
+    def _parse_meta_question(self, question_text: str) -> QuestionParse:
+        statement = _extract_meta_statement(question_text)
+        text_tree = split_meta_formula(statement)
+
+        def llm_atomizer(phrase: str, variable: str):
+            return atomize_leaf_with_llm(
+                phrase,
+                variable,
+                self.llm,
+                max_new_tokens=getattr(self.config, "stage3_meta_atomizer_max_new_tokens", 300),
+            )
+
+        formula_tree, flat_atoms = process_formula_node(
+            text_tree,
+            llm_atomizer,
+            premise_id="Q",
+        )
+        query = formula_tree_to_logic_node(formula_tree, flat_atoms)
+        return QuestionParse(
+            question=question_text,
+            query=query,
+            choices={},
+            query_type="META_QUERY",
+            direct_solver_ready=is_direct_solver_ready_formula(formula_tree),
+            formula_tree=formula_tree,
+            flat_atoms=flat_atoms,
+            unsupported=False,
+            notes=["nested_logic"],
+        )
+
+
+def _classify_question_parse(parsed: QuestionParse) -> QuestionParse:
+    if parsed.choices:
+        parsed.query_type = "CHOICE_QUERY"
+        parsed.direct_solver_ready = all(
+            is_direct_solver_ready_formula(choice)
+            for choice in parsed.choices.values()
+        )
+    elif parsed.query:
+        parsed.query_type = "AST_QUERY"
+        parsed.direct_solver_ready = is_direct_solver_ready_formula(parsed.query)
+    else:
+        parsed.query_type = "UNKNOWN"
+        parsed.direct_solver_ready = False
+    return parsed
+
+
+def _extract_meta_statement(question_text: str) -> str:
+    clean = re.sub(r"\s+", " ", question_text).strip()
+    statement_match = re.search(r"\bstatement\s*:\s*(?P<statement>.+)$", clean, flags=re.IGNORECASE)
+    if statement_match:
+        clean = statement_match.group("statement").strip()
+
+    if clean.lower().startswith("if "):
+        return clean
+
+    if_start = re.search(r"\bif\b", clean, flags=re.IGNORECASE)
+    if if_start:
+        return clean[if_start.start():].strip()
+
+    return clean

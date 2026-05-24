@@ -128,11 +128,16 @@ class LogicPipeline:
                     if item.formula_tree
                     else False
                 )
+                item.meta_resolved = item.meta_resolved or item.meta_resolvable
+                item.meta_resolvable = item.meta_resolved
                 item.solver_ready = False
-                item.needs_review = not item.meta_resolvable or item.unsupported
+                item.needs_review = not item.meta_resolved or item.unsupported
+                item.add_to_solver = bool(item.solver_export) and item.solver_ready_after_meta_resolution
                 continue
 
             item.direct_solver_ready = is_direct_solver_ready_formula(item.formula_tree or item.ast)
+            item.meta_resolved = False
+            item.solver_ready_after_meta_resolution = False
 
             status = classify_solver_readiness(
                 item.kind,
@@ -144,6 +149,7 @@ class LogicPipeline:
                 status == "solver_ready" and not item.direct_solver_ready
             )
             item.unsupported = (status == "unsupported")
+            item.add_to_solver = item.solver_ready
             item.solver_export = [
                 item.ast.model_dump(exclude_none=True)
             ] if item.solver_ready else []

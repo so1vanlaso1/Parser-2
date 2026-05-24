@@ -360,108 +360,208 @@ def contains_formula_level_node(node: Any) -> bool:
     return any(contains_formula_level_node(child) for child in node.get("children", []))
 
 
-def resolve_meta_premises(output: Stage3Output) -> Stage3Output:
-    """Add formula-to-formula links for META premises.
+def resolve_meta_premises(output: Stage3Output, *, max_rounds: int = 5) -> Stage3Output:
+    """Resolve META formulas against available formula signatures to a fixed point.
 
-    This does not send META formulas directly to the solver. It only records
-    whether the outer formula can be resolved against existing premise formulas.
+    META premises are never treated as direct solver premises. A resolved META
+    can either be redundant because its consequent is already available, or it
+    can materialize only its consequent formula. Materialized consequents are
+    added to the signature index for later META rounds.
     """
-    normal_signatures: dict[Any, list[str]] = {}
+    available_signatures: dict[Any, list[str]] = {}
+    signature_solver_ready: dict[Any, bool] = {}
+
     for item in output.compiled:
         if item.kind == "META":
             continue
-        signature = formula_signature(item.ast)
-        normal_signatures.setdefault(signature, []).append(item.premise_id)
 
-    for item in output.compiled:
-        if item.kind != "META" or not item.formula_tree:
-            continue
+        signature = formula_signature(item.formula_tree or item.ast)
+        available_signatures.setdefault(signature, []).append(item.premise_id)
+        signature_solver_ready[signature] = signature_solver_ready.get(
+            signature,
+            False,
+        ) or is_direct_solver_ready_formula(item.formula_tree or item.ast)
 
-        item.direct_solver_ready = is_direct_solver_ready_formula(item.formula_tree)
-        item.solver_export = []
-        item.meta_links = []
+    meta_items = [item for item in output.compiled if item.kind == "META"]
+    for item in meta_items:
+        _reset_meta_resolution_state(item)
 
-        if item.formula_tree.get("type") != "implies":
-            item.meta_resolvable = False
-            item.meta_links.append(
-                {
-                    "type": "resolution",
-                    "status": "unresolved",
-                    "reason": "META formula is not an outer implication",
-                }
-            )
-            continue
+    for round_id in range(max_rounds):
+        known_before_round = set(available_signatures)
+        materialized: list[tuple[Any, str, bool]] = []
 
-        children = item.formula_tree.get("children", [])
-        if len(children) != 2:
-            item.meta_resolvable = False
-            item.meta_links.append(
-                {
-                    "type": "resolution",
-                    "status": "unresolved",
-                    "reason": "META implication does not have exactly two children",
-                }
+        for item in meta_items:
+            if item.meta_resolved:
+                continue
+            materialization = _resolve_meta_item_once(
+                item,
+                available_signatures,
+                signature_solver_ready,
+                round_id=round_id,
             )
-            continue
+            if materialization is not None:
+                materialized.append(materialization)
 
-        atom_by_id = {atom.atom_id: atom for atom in item.flat_atoms}
-        antecedent_sig = formula_signature(children[0], atom_by_id=atom_by_id)
-        consequent_sig = formula_signature(children[1], atom_by_id=atom_by_id)
-        antecedent_matches = normal_signatures.get(antecedent_sig, [])
-        consequent_matches = normal_signatures.get(consequent_sig, [])
+        for signature, source_label, ready in materialized:
+            sources = available_signatures.setdefault(signature, [])
+            if source_label not in sources:
+                sources.append(source_label)
+            signature_solver_ready[signature] = signature_solver_ready.get(signature, False) or ready
 
-        for premise_id in antecedent_matches:
-            item.meta_links.append(
-                {
-                    "type": "antecedent_matches_premise",
-                    "from": item.premise_id,
-                    "to": premise_id,
-                }
-            )
-        for premise_id in consequent_matches:
-            item.meta_links.append(
-                {
-                    "type": "consequent_matches_premise",
-                    "from": item.premise_id,
-                    "to": premise_id,
-                }
-            )
-
-        if antecedent_matches and consequent_matches:
-            item.meta_resolvable = True
-            item.meta_links.append(
-                {
-                    "type": "resolution",
-                    "status": "redundant",
-                    "reason": "antecedent and consequent formulas already exist",
-                    "premises": sorted(set(antecedent_matches + consequent_matches)),
-                }
-            )
-            _append_note(item, "meta_resolution: redundant")
-        elif antecedent_matches:
-            item.meta_resolvable = True
-            item.solver_export = [children[1]]
-            item.meta_links.append(
-                {
-                    "type": "resolution",
-                    "status": "materialize_consequent",
-                    "reason": "antecedent formula already exists",
-                    "premises": antecedent_matches,
-                }
-            )
-            _append_note(item, "meta_resolution: materialize_consequent")
-        else:
-            item.meta_resolvable = False
-            item.meta_links.append(
-                {
-                    "type": "resolution",
-                    "status": "unresolved",
-                    "reason": "antecedent formula is not available as a premise",
-                }
-            )
-            _append_note(item, "meta_resolution: unresolved")
+        if not any(signature not in known_before_round for signature, _, _ in materialized):
+            break
 
     return output
+
+
+def _reset_meta_resolution_state(item: CompiledPremise) -> None:
+    item.direct_solver_ready = (
+        is_direct_solver_ready_formula(item.formula_tree)
+        if item.formula_tree
+        else False
+    )
+    item.meta_resolvable = False
+    item.meta_resolved = False
+    item.solver_ready_after_meta_resolution = False
+    item.add_to_solver = False
+    item.resolution = None
+    item.solver_export = []
+    item.meta_links = []
+
+    if item.unsupported:
+        _mark_meta_unresolved(item, "META premise is unsupported")
+    elif not item.formula_tree:
+        _mark_meta_unresolved(item, "META premise has no formula tree")
+
+
+def _resolve_meta_item_once(
+    item: CompiledPremise,
+    available_signatures: dict[Any, list[str]],
+    signature_solver_ready: dict[Any, bool],
+    *,
+    round_id: int,
+) -> tuple[Any, str, bool] | None:
+    if item.unsupported or not item.formula_tree:
+        return None
+
+    item.meta_links = []
+    item.solver_export = []
+    item.add_to_solver = False
+    item.resolution = None
+
+    if item.formula_tree.get("type") != "implies":
+        _mark_meta_unresolved(item, "META formula is not an outer implication", round_id=round_id)
+        return None
+
+    children = item.formula_tree.get("children", [])
+    if len(children) != 2:
+        _mark_meta_unresolved(
+            item,
+            "META implication does not have exactly two children",
+            round_id=round_id,
+        )
+        return None
+
+    atom_by_id = {atom.atom_id: atom for atom in item.flat_atoms}
+    antecedent_sig = formula_signature(children[0], atom_by_id=atom_by_id)
+    consequent_sig = formula_signature(children[1], atom_by_id=atom_by_id)
+    antecedent_matches = available_signatures.get(antecedent_sig, [])
+    consequent_matches = available_signatures.get(consequent_sig, [])
+
+    for premise_id in antecedent_matches:
+        item.meta_links.append(
+            {
+                "type": "antecedent_matches_premise",
+                "from": item.premise_id,
+                "to": premise_id,
+                "round": round_id,
+            }
+        )
+    for premise_id in consequent_matches:
+        item.meta_links.append(
+            {
+                "type": "consequent_matches_premise",
+                "from": item.premise_id,
+                "to": premise_id,
+                "round": round_id,
+            }
+        )
+
+    if antecedent_matches and consequent_matches:
+        item.meta_resolvable = True
+        item.meta_resolved = True
+        item.solver_ready_after_meta_resolution = signature_solver_ready.get(consequent_sig, False)
+        item.add_to_solver = False
+        item.resolution = "redundant_formula_link"
+        item.meta_links.append(
+            {
+                "type": "resolution",
+                "status": "redundant",
+                "reason": "antecedent and consequent formulas already exist",
+                "premises": sorted(set(antecedent_matches + consequent_matches)),
+                "round": round_id,
+            }
+        )
+        _append_note(item, "meta_resolution: redundant")
+        return None
+
+    if antecedent_matches:
+        consequent_ready = is_direct_solver_ready_formula(children[1])
+        item.meta_resolvable = True
+        item.meta_resolved = True
+        item.solver_ready_after_meta_resolution = consequent_ready
+        item.resolution = "materialized_consequent"
+        if consequent_ready:
+            item.solver_export = [_formula_export(children[1], item)]
+        item.add_to_solver = bool(item.solver_export)
+        item.meta_links.append(
+            {
+                "type": "resolution",
+                "status": "materialize_consequent",
+                "reason": "antecedent formula already exists",
+                "premises": antecedent_matches,
+                "round": round_id,
+            }
+        )
+        _append_note(item, "meta_resolution: materialize_consequent")
+        return (
+            consequent_sig,
+            f"{item.premise_id}:materialized_consequent",
+            consequent_ready,
+        )
+
+    _mark_meta_unresolved(
+        item,
+        "antecedent formula is not available as a premise",
+        round_id=round_id,
+    )
+    return None
+
+
+def _mark_meta_unresolved(
+    item: CompiledPremise,
+    reason: str,
+    *,
+    round_id: int | None = None,
+) -> None:
+    item.meta_resolvable = False
+    item.meta_resolved = False
+    item.solver_ready_after_meta_resolution = False
+    item.add_to_solver = False
+    item.resolution = "unresolved"
+    link: dict[str, Any] = {
+        "type": "resolution",
+        "status": "unresolved",
+        "reason": reason,
+    }
+    if round_id is not None:
+        link["round"] = round_id
+    item.meta_links.append(link)
+    _append_note(item, "meta_resolution: unresolved")
+
+
+def _formula_export(formula: Any, item: CompiledPremise) -> dict[str, Any]:
+    return formula_tree_to_logic_node(formula, item.flat_atoms).model_dump(exclude_none=True)
 
 
 def formula_signature(node: Any, *, atom_by_id: dict[str, FlatAtom] | None = None) -> Any:
@@ -700,12 +800,16 @@ def _parse_exists_body(text: str) -> str | None:
         r"^there exists(?:\s+at least one)?\s+(?P<subject>.+?)\s+(?:who|that)\s+(?P<body>.+)$",
         r"^there is at least one\s+(?P<subject>.+?)\s+(?:who|that)\s+(?P<body>.+)$",
         r"^at least one\s+(?P<subject>.+?)\s+(?:who|that)\s+(?P<body>.+)$",
+        r"^there exists\s+(?:one|a|an|at least one)\s+(?P<subject>.+?)\s+(?P<body>is|are|has|have|does|do|can|will|must|should|receives?|gets?|gains?|attends?|attending|asks?|asking|passes?|passing|prepares?|preparing|understands?|understanding|revises?|revising|studies?|studying)\b(?P<rest>.*)$",
     ]
     for pattern in patterns:
         match = re.match(pattern, text, flags=re.IGNORECASE)
         if match:
             subject = _singular_subject(match.group("subject"))
             body = match.group("body").strip()
+            rest = match.groupdict().get("rest")
+            if rest is not None:
+                body = f"{body}{rest}".strip()
             return f"a {subject} {body}"
     return None
 

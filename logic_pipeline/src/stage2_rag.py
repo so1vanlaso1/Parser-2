@@ -3,20 +3,19 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 
 class StructuralRAG:
     """
     Structural memory retriever.
 
-    Stores CNL -> AST example pairs and retrieves the most similar ones
+    Stores structural guide/CNL -> CIR example pairs and retrieves the most similar ones
     by cosine similarity over sentence embeddings.
     """
 
     def __init__(self, examples_path: str = "data/structural_examples.jsonl"):
         self.examples_path = Path(examples_path)
-        self.embedder = SentenceTransformer("all-MiniLM-L6-v2")
+        self.embedder = None
         self.items: list[dict[str, Any]] = []
         self.embeddings: np.ndarray | None = None
         self.load()
@@ -30,12 +29,18 @@ class StructuralRAG:
 
         self.items = rows
         if rows:
-            texts = [r["cnl"] for r in rows]
-            self.embeddings = self.embedder.encode(texts, convert_to_numpy=True)
+            self.embeddings = None
         else:
             self.embeddings = None
 
     def retrieve(self, query: str, top_k: int = 3) -> list[dict[str, Any]]:
+        if self.embedder is None and self.items:
+            from sentence_transformers import SentenceTransformer
+
+            self.embedder = SentenceTransformer("all-MiniLM-L6-v2")
+            texts = [r["cnl"] for r in self.items]
+            self.embeddings = self.embedder.encode(texts, convert_to_numpy=True)
+
         if self.embeddings is None or len(self.items) == 0:
             return []
 
@@ -58,11 +63,12 @@ class StructuralRAG:
 
         blocks = []
         for m in matches:
+            payload = m.get("cir", m.get("ast", {}))
             blocks.append(
-                "CNL:\n"
+                "Input:\n"
                 f"{m['cnl']}\n"
-                "AST:\n"
-                f"{json.dumps(m['ast'], ensure_ascii=False)}"
+                "CIR JSON:\n"
+                f"{json.dumps(payload, ensure_ascii=False)}"
             )
 
         return "\n\n".join(blocks)

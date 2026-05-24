@@ -22,6 +22,8 @@ PremiseKind = Literal[
 ]
 
 PredicateGroupConnective = Literal["and", "or"]
+CIRKind = Literal["fact", "exists", "forall", "rule", "meta"]
+CIRConnective = Literal["and", "or", "not", "implies", "iff", "forall", "exists", "atom"]
 
 
 LogicNodeType = Literal[
@@ -52,6 +54,17 @@ class CNLStatement(BaseModel):
     kind_hint: PremiseKind
     cnl: str
 
+    # Stage 1 structural-guide fields.  These are the CIR migration source of
+    # truth where available; cnl/kind_hint remain for backward compatibility.
+    mode: Literal["direct_solver", "llm_guided", "blocked_review"] = "llm_guided"
+    recognized_type: Optional[str] = None
+    target_kind: Optional[CIRKind] = None
+    subject_type: Optional[str] = None
+    subject: Optional[str] = None
+    slots: dict[str, Any] = Field(default_factory=dict)
+    notes: list[str] = Field(default_factory=list)
+    direct_cir: Optional["CIRPremise"] = None
+
     # Important for later validation.
     risk_flags: list[str] = Field(default_factory=list)
 
@@ -63,6 +76,65 @@ class CNLStatement(BaseModel):
 
 class Stage1Output(BaseModel):
     statements: list[CNLStatement]
+
+
+# ---------------------------------------------------------------------------
+# CIR models
+# ---------------------------------------------------------------------------
+
+class CIRAtom(BaseModel):
+    name: str
+    arguments: list[str] = Field(default_factory=list)
+    negated: bool = False
+
+
+class CIRLink(BaseModel):
+    type: CIRConnective
+    children: list[Any] = Field(default_factory=list)
+    atom: Optional[CIRAtom] = None
+    variable: Optional[str] = None
+
+
+class CIRFact(BaseModel):
+    kind: Literal["fact"] = "fact"
+    atoms: list[CIRAtom] = Field(default_factory=list)
+
+
+class CIRExists(BaseModel):
+    kind: Literal["exists"] = "exists"
+    variable: str = "x"
+    body: list[CIRAtom] = Field(default_factory=list)
+
+
+class CIRForall(BaseModel):
+    kind: Literal["forall"] = "forall"
+    variable: str = "x"
+    antecedent: list[CIRAtom] = Field(default_factory=list)
+    consequent: list[CIRAtom] = Field(default_factory=list)
+    body: list[CIRAtom] = Field(default_factory=list)
+
+
+class CIRRule(BaseModel):
+    kind: Literal["rule"] = "rule"
+    variable: str = "x"
+    antecedent: list[CIRAtom] = Field(default_factory=list)
+    consequent: list[CIRAtom] = Field(default_factory=list)
+
+
+class CIRMeta(BaseModel):
+    kind: Literal["meta"] = "meta"
+    formula: dict[str, Any]
+    flat_atoms: list[CIRAtom] = Field(default_factory=list)
+
+
+class CIRPremise(BaseModel):
+    premise_id: str
+    kind: CIRKind
+    cir: Union[CIRFact, CIRExists, CIRForall, CIRRule, CIRMeta]
+
+
+class Stage3CIROutput(BaseModel):
+    premises: list[CIRPremise]
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +254,7 @@ class LogicNode(BaseModel):
 
 
 LogicNode.model_rebuild()
+CNLStatement.model_rebuild()
 
 
 # ---------------------------------------------------------------------------

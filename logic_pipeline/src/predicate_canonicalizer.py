@@ -7,6 +7,8 @@ CANONICAL_PREDICATES = {
     "requires_extensive_hyperparameter_tuning": "has_extensive_hyperparameter_tuning",
     "has_been_extensively_tuned": "has_extensive_hyperparameter_tuning",
     "is_extensively_tuned": "has_extensive_hyperparameter_tuning",
+    "masters_subject": "mastered_subject",
+    "entity_receive_scholarship": "receive_scholarship",
 }
 
 

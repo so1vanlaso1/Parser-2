@@ -7,7 +7,7 @@ from .schemas import FullParseResult, Stage1Output, Stage3Output, QuestionParse
 from .stage1_cnl import CNLRewriter
 from .stage2_rag import StructuralRAG
 from .stage3_ast import ASTCompiler
-from .stage4_validate import LogicValidator, classify_solver_readiness
+from .stage4_validate import LogicValidator, classify_solver_readiness, has_solver_blocking_predicate
 from .stage5_repair import RepairLoop
 from .question_parser import QuestionParser
 from .predicate_canonicalizer import (
@@ -122,20 +122,34 @@ class LogicPipeline:
 
         # ── Classify solver readiness ───────────────────────────────────
         for item in stage3_output.compiled:
+            blocking_predicate = has_solver_blocking_predicate(item.ast)
             if item.kind == "META":
                 item.direct_solver_ready = (
                     is_direct_solver_ready_formula(item.formula_tree)
                     if item.formula_tree
                     else False
                 )
+                item.direct_solver_ready = item.direct_solver_ready and not blocking_predicate
                 item.meta_resolved = item.meta_resolved or item.meta_resolvable
                 item.meta_resolvable = item.meta_resolved
                 item.solver_ready = False
-                item.needs_review = not item.meta_resolved or item.unsupported
-                item.add_to_solver = bool(item.solver_export) and item.solver_ready_after_meta_resolution
+                item.needs_review = not item.meta_resolved or item.unsupported or blocking_predicate
+                item.add_to_solver = (
+                    bool(item.solver_export)
+                    and item.solver_ready_after_meta_resolution
+                    and not blocking_predicate
+                    and not item.unsupported
+                )
+                if not item.add_to_solver:
+                    item.solver_export = []
                 continue
 
-            item.direct_solver_ready = is_direct_solver_ready_formula(item.formula_tree or item.ast)
+            was_unsupported = item.unsupported
+            item.direct_solver_ready = (
+                is_direct_solver_ready_formula(item.formula_tree or item.ast)
+                and not blocking_predicate
+                and not was_unsupported
+            )
             item.meta_resolved = False
             item.solver_ready_after_meta_resolution = False
 
@@ -144,11 +158,15 @@ class LogicPipeline:
                 item.ast.type,
                 [f.strip() for f in (item.notes or [])],
             )
+            if was_unsupported:
+                status = "unsupported"
+            elif blocking_predicate:
+                status = "needs_review"
             item.solver_ready = (status == "solver_ready" and item.direct_solver_ready)
             item.needs_review = (status == "needs_review") or (
                 status == "solver_ready" and not item.direct_solver_ready
-            )
-            item.unsupported = (status == "unsupported")
+            ) or was_unsupported
+            item.unsupported = was_unsupported or (status == "unsupported")
             item.add_to_solver = item.solver_ready
             item.solver_export = [
                 item.ast.model_dump(exclude_none=True)

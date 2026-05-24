@@ -9,6 +9,8 @@ class ValidationIssue:
     premise_id: str
     severity: str  # "error", "warning"
     message: str
+    code: str = "VALIDATION_ISSUE"
+    repair_hint: str | None = None
 
 
 @dataclass
@@ -38,6 +40,7 @@ class LogicValidator:
 
         for item in output.compiled:
             issues.extend(self.validate_node(item.premise_id, item.ast))
+            issues.extend(self._validate_premise_level(item))
 
             if item.kind == "ONLY_IF_RULE":
                 if not self.contains_node_type(item.ast, "implies"):
@@ -46,6 +49,8 @@ class LogicValidator:
                             item.premise_id,
                             "error",
                             "ONLY_IF_RULE must compile to an implies node.",
+                            "ONLY_IF_MISSING_IMPLIES",
+                            "Compile only-if as A implies B.",
                         )
                     )
 
@@ -56,6 +61,8 @@ class LogicValidator:
                             item.premise_id,
                             "error",
                             "IFF premise must compile to an iff node.",
+                            "IFF_MISSING_IFF",
+                            "Compile biconditional premises with an iff node.",
                         )
                     )
 
@@ -67,6 +74,8 @@ class LogicValidator:
                             item.premise_id,
                             "warning",
                             "RULE contains nested implies. Consider reclassifying as META.",
+                            "NESTED_IMPLIES_IN_RULE",
+                            "Represent nested implication as META CIR.",
                         )
                     )
 
@@ -80,6 +89,30 @@ class LogicValidator:
         bound_vars: set[str] = set()
 
         self._walk(node, premise_id, bound_vars, issues)
+        return issues
+
+    def _validate_premise_level(self, item) -> list[ValidationIssue]:
+        issues: list[ValidationIssue] = []
+        if item.kind == "FACT" and self._fact_uses_variable(item.ast):
+            issues.append(
+                ValidationIssue(
+                    item.premise_id,
+                    "error",
+                    "Named fact uses a variable argument; facts about individuals must use constants.",
+                    "NAMED_FACT_USED_VARIABLE",
+                    "Replace the variable with a constant or reclassify the premise as quantified.",
+                )
+            )
+        if item.kind == "META" and item.formula_tree is None and self.contains_node_type(item.ast, "implies"):
+            issues.append(
+                ValidationIssue(
+                    item.premise_id,
+                    "warning",
+                    "META premise appears to be represented only as a flattened AST.",
+                    "META_FLATTENED_TO_HORN",
+                    "Preserve the META formula tree and keep it out of direct solver facts.",
+                )
+            )
         return issues
 
     def _walk(
@@ -134,6 +167,8 @@ class LogicValidator:
                             premise_id,
                             "error",
                             f"Unbound variable '{arg}' in atomic predicate {node.name}",
+                            "UNBOUND_VARIABLE",
+                            "Bind the variable with forall/exists or use a constant.",
                         )
                     )
 
@@ -143,8 +178,45 @@ class LogicValidator:
                         premise_id,
                         "error",
                         f"Predicate name '{node.name}' contains negation. Use a NOT node instead.",
+                        "NEGATION_IN_PREDICATE_NAME",
+                        "Move negation into a not node around the atom.",
                     )
                 )
+
+            if node.name and any(ch.isdigit() for ch in node.name):
+                issues.append(
+                    ValidationIssue(
+                        premise_id,
+                        "error",
+                        f"Predicate name '{node.name}' contains a number.",
+                        "NUMBER_IN_PREDICATE_NAME",
+                        "Move numeric values into arguments or equation/comparison nodes.",
+                    )
+                )
+
+            if node.name and self._looks_sentence_like(node.name):
+                issues.append(
+                    ValidationIssue(
+                        premise_id,
+                        "error",
+                        f"Predicate name '{node.name}' looks like a sentence.",
+                        "SENTENCE_LIKE_PREDICATE",
+                        "Atomize the phrase into concise predicate atoms.",
+                    )
+                )
+
+            if node.name:
+                reason = solver_blocking_predicate_reason(node.name)
+                if reason:
+                    issues.append(
+                        ValidationIssue(
+                            premise_id,
+                            "warning",
+                            f"Predicate name '{node.name}' is too weak for direct solver use: {reason}.",
+                            "SOLVER_BLOCKING_PREDICATE",
+                            "Replace it with a canonical domain predicate or keep the premise in needs_review.",
+                        )
+                    )
 
         # --- NOT checks ---
         if node.type == "not":
@@ -214,6 +286,44 @@ class LogicValidator:
                     return True
         return False
 
+    def _fact_uses_variable(self, node: LogicNode) -> bool:
+        if node.type == "atomic":
+            return any(len(arg) == 1 and arg.isalpha() and arg.islower() for arg in node.arguments)
+        return any(self._fact_uses_variable(child) for child in node.children)
+
+    def _looks_sentence_like(self, name: str) -> bool:
+        parts = [part for part in name.split("_") if part]
+        return len(parts) >= 12 or any(part in {"if", "then", "because", "statement"} for part in parts)
+
+
+def solver_blocking_predicate_reason(name: str) -> str | None:
+    parts = [part for part in name.split("_") if part]
+    if name == "unsupported_premise":
+        return "unsupported fallback atom"
+    if name.startswith("entity_"):
+        return "generic entity placeholder"
+    if "_entity_" in name or name.endswith("_entity"):
+        return "generic entity placeholder"
+    if "_and_" in name:
+        return "compound predicate encodes conjunction"
+    if name.endswith("_or") or "_or_" in name:
+        return "compound predicate encodes disjunction"
+    if len(parts) > 5:
+        return "sentence-like predicate is too long"
+    return None
+
+
+def has_solver_blocking_predicate(node: LogicNode) -> bool:
+    if node.type == "atomic" and node.name and solver_blocking_predicate_reason(node.name):
+        return True
+    if any(has_solver_blocking_predicate(child) for child in node.children):
+        return True
+    if isinstance(node.left, LogicNode) and has_solver_blocking_predicate(node.left):
+        return True
+    if isinstance(node.right, LogicNode) and has_solver_blocking_predicate(node.right):
+        return True
+    return False
+
 
 def classify_solver_readiness(kind: str, ast_type: str, risk_flags: list[str]) -> str:
     """
@@ -221,13 +331,16 @@ def classify_solver_readiness(kind: str, ast_type: str, risk_flags: list[str]) -
 
     Returns: "solver_ready", "needs_review", "needs_lowering", or "unsupported"
     """
+    if any(flag in risk_flags for flag in {"needs_review", "blocked_review", "generic_sentence_fact"}):
+        return "needs_review"
+
     if "modal_not_necessarily" in risk_flags:
         return "needs_review"
 
     if "modal_scope_ambiguous" in risk_flags:
         return "needs_review"
 
-    if kind in {"META", "OBLIGATION_RULE"}:
+    if kind in {"META", "OBLIGATION_RULE", "UNKNOWN"}:
         return "needs_review"
 
     if ast_type in {"atomic", "forall", "exists", "implies", "and", "not"}:
@@ -240,4 +353,4 @@ def classify_solver_readiness(kind: str, ast_type: str, risk_flags: list[str]) -
 
 
 def is_direct_solver_ready(ast) -> bool:
-    return is_direct_solver_ready_formula(ast)
+    return is_direct_solver_ready_formula(ast) and not has_solver_blocking_predicate(ast)

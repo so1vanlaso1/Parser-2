@@ -2,6 +2,13 @@ from .config import PipelineConfig
 from .json_utils import extract_json_object
 from .llm_client import ChatModel
 from .schemas import (
+    CIRAtom,
+    CIRExists,
+    CIRFact,
+    CIRForall,
+    CIRMeta,
+    CIRPremise,
+    CIRRule,
     CompiledPremise,
     CNLStatement,
     LogicNode,
@@ -321,16 +328,39 @@ class ASTCompiler:
         self.llm = llm
 
     def compile(self, stage1: Stage1Output) -> Stage3Output:
+        if all(statement.direct_cir is not None for statement in stage1.statements):
+            return Stage3Output(
+                compiled=[self._compile_direct_cir(statement) for statement in stage1.statements]
+            )
+
         if getattr(self.config, "enable_frame_ast_compiler", True):
             try:
                 frames = self._extract_frames(stage1)
                 return self._compile_frames_with_fallback(stage1, frames)
             except Exception:
-                # Preserve the previous behavior if the shallow frame response
-                # is malformed or cannot be validated.
-                return self._compile_full_ast(stage1)
+                return Stage3Output(
+                    compiled=[
+                        self._compile_direct_cir(statement)
+                        if statement.direct_cir is not None
+                        else self._build_unsupported_premise(
+                            statement,
+                            "CIR extraction failed and full AST fallback is disabled",
+                        )
+                        for statement in stage1.statements
+                    ]
+                )
 
-        return self._compile_full_ast(stage1)
+        return Stage3Output(
+            compiled=[
+                self._compile_direct_cir(statement)
+                if statement.direct_cir is not None
+                else self._build_unsupported_premise(
+                    statement,
+                    "Stage 3 CIR extraction is disabled and no direct CIR was provided",
+                )
+                for statement in stage1.statements
+            ]
+        )
 
     def _extract_frames(self, stage1: Stage1Output) -> PredicateFrameOutput:
         cnl_text = "\n".join(
@@ -356,6 +386,10 @@ class ASTCompiler:
         fallback_statements = []
 
         for statement in stage1.statements:
+            if statement.direct_cir is not None:
+                compiled_by_id[statement.premise_id] = self._compile_direct_cir(statement)
+                continue
+
             frame = frame_by_id.get(statement.premise_id)
             if frame is not None:
                 frame = frame.model_copy(update={"kind": statement.kind_hint, "cnl": statement.cnl})
@@ -380,9 +414,11 @@ class ASTCompiler:
                 fallback_statements.append(statement)
 
         if fallback_statements:
-            fallback_output = self._compile_full_ast(Stage1Output(statements=fallback_statements))
-            for item in fallback_output.compiled:
-                compiled_by_id[item.premise_id] = item
+            for statement in fallback_statements:
+                compiled_by_id[statement.premise_id] = self._build_unsupported_premise(
+                    statement,
+                    "CIR extraction did not produce a compiler-ready premise",
+                )
 
         return Stage3Output(
             compiled=[compiled_by_id[statement.premise_id] for statement in stage1.statements]
@@ -390,6 +426,164 @@ class ASTCompiler:
 
     def _frame_needs_fallback(self, frame: PredicateFrame) -> bool:
         return frame.unsupported or frame.kind == "UNKNOWN"
+
+    def _compile_direct_cir(self, statement: CNLStatement) -> CompiledPremise:
+        if statement.direct_cir is None:
+            return self._build_unsupported_premise(statement, "missing direct CIR")
+        cir_premise = statement.direct_cir
+        ast = self._compile_cir_premise(cir_premise)
+        formula_tree = None
+        flat_atoms = []
+        if isinstance(cir_premise.cir, CIRMeta):
+            formula_tree = cir_premise.cir.formula
+
+        return CompiledPremise(
+            premise_id=statement.premise_id,
+            kind=statement.kind_hint,
+            cnl=statement.cnl,
+            ast=ast,
+            solver_ready=False,
+            needs_review=statement.kind_hint == "META",
+            unsupported=False,
+            direct_solver_ready=is_direct_solver_ready_formula(formula_tree or ast),
+            formula_tree=formula_tree,
+            flat_atoms=flat_atoms,
+            notes=list(dict.fromkeys([*statement.risk_flags, *statement.notes])),
+        )
+
+    def _compile_cir_premise(self, premise: CIRPremise) -> LogicNode:
+        cir = premise.cir
+        if isinstance(cir, CIRFact):
+            return self._atoms_to_node(cir.atoms, premise.premise_id)
+        if isinstance(cir, CIRExists):
+            return LogicNode(
+                type="exists",
+                variable=cir.variable,
+                children=[self._atoms_to_node(cir.body, premise.premise_id)],
+            )
+        if isinstance(cir, CIRForall):
+            if cir.antecedent and cir.consequent:
+                body = LogicNode(
+                    type="implies",
+                    children=[
+                        self._atoms_to_node(cir.antecedent, premise.premise_id),
+                        self._atoms_to_node(cir.consequent, premise.premise_id),
+                    ],
+                )
+            else:
+                body = self._atoms_to_node(cir.body, premise.premise_id)
+            return self._wrap_forall_variables(
+                body,
+                self._rule_variables(cir.variable, [*cir.antecedent, *cir.consequent, *cir.body]),
+            )
+        if isinstance(cir, CIRRule):
+            body = LogicNode(
+                type="implies",
+                children=[
+                    self._atoms_to_node(cir.antecedent, premise.premise_id),
+                    self._atoms_to_node(cir.consequent, premise.premise_id),
+                ],
+            )
+            return self._wrap_forall_variables(
+                body,
+                self._rule_variables(cir.variable, [*cir.antecedent, *cir.consequent]),
+            )
+        if isinstance(cir, CIRMeta):
+            return self._formula_dict_to_logic_node(cir.formula, premise.premise_id)
+        raise ValueError(f"Unsupported CIR premise: {premise!r}")
+
+    def _atoms_to_node(self, atoms: list[CIRAtom], premise_id: str) -> LogicNode:
+        if not atoms:
+            raise ValueError("CIR atom list is empty")
+        nodes = [self._cir_atom_to_node(atom, premise_id) for atom in atoms]
+        if len(nodes) == 1:
+            return nodes[0]
+        return LogicNode(type="and", children=nodes, source_premise_id=premise_id)
+
+    def _cir_atom_to_node(self, atom: CIRAtom, premise_id: str) -> LogicNode:
+        node = LogicNode(
+            type="atomic",
+            name=atom.name,
+            arguments=atom.arguments,
+            source_premise_id=premise_id,
+        )
+        if atom.negated:
+            return LogicNode(type="not", children=[node], source_premise_id=premise_id)
+        return node
+
+    def _rule_variables(self, primary: str, atoms: list[CIRAtom]) -> list[str]:
+        variables = [primary]
+        for atom in atoms:
+            for argument in atom.arguments:
+                if (
+                    len(argument) == 1
+                    and argument.isalpha()
+                    and argument.islower()
+                    and argument not in variables
+                ):
+                    variables.append(argument)
+        return variables
+
+    def _wrap_forall_variables(self, body: LogicNode, variables: list[str]) -> LogicNode:
+        wrapped = body
+        for variable in reversed(variables):
+            wrapped = LogicNode(type="forall", variable=variable, children=[wrapped])
+        return wrapped
+
+    def _formula_dict_to_logic_node(self, formula: dict, premise_id: str) -> LogicNode:
+        node_type = formula.get("type")
+        if node_type == "atomic":
+            return LogicNode(
+                type="atomic",
+                name=formula.get("name"),
+                arguments=[str(arg) for arg in formula.get("arguments", [])],
+                source_premise_id=premise_id,
+            )
+        if node_type == "not":
+            return LogicNode(
+                type="not",
+                children=[self._formula_dict_to_logic_node(formula["children"][0], premise_id)],
+                source_premise_id=premise_id,
+            )
+        if node_type in {"and", "or", "implies", "iff"}:
+            return LogicNode(
+                type=node_type,
+                children=[
+                    self._formula_dict_to_logic_node(child, premise_id)
+                    for child in formula.get("children", [])
+                ],
+                source_premise_id=premise_id,
+            )
+        if node_type in {"forall", "exists"}:
+            return LogicNode(
+                type=node_type,
+                variable=formula.get("variable"),
+                children=[
+                    self._formula_dict_to_logic_node(child, premise_id)
+                    for child in formula.get("children", [])
+                ],
+                source_premise_id=premise_id,
+            )
+        raise ValueError(f"Unsupported CIR formula node: {node_type}")
+
+    def _build_unsupported_premise(self, statement: CNLStatement, reason: str) -> CompiledPremise:
+        notes = list(dict.fromkeys([*statement.risk_flags, *statement.notes, reason]))
+        return CompiledPremise(
+            premise_id=statement.premise_id,
+            kind=statement.kind_hint if statement.kind_hint != "UNKNOWN" else "UNKNOWN",
+            cnl=statement.cnl,
+            ast=LogicNode(
+                type="atomic",
+                name="unsupported_premise",
+                arguments=[statement.premise_id.lower()],
+                source_premise_id=statement.premise_id,
+            ),
+            solver_ready=False,
+            needs_review=True,
+            unsupported=True,
+            direct_solver_ready=False,
+            notes=notes,
+        )
 
     def _statement_is_meta(
         self,

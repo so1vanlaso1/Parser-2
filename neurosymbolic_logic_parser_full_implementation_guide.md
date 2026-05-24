@@ -1,5 +1,9 @@
 # Multi-Stage Neurosymbolic Logic Parser: Full Implementation Guide
 
+> Current migration note: the implementation is moving to a CIR-only semantic
+> boundary. LLM components may produce structural guide data or CIR JSON, but
+> solver-facing `LogicNode` AST is built deterministically in Python.
+
 This guide turns your current pipeline into a complete implementation plan for a **logic parser + solver pipeline** that takes:
 
 ```text

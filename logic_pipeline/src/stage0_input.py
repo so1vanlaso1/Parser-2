@@ -13,6 +13,7 @@ class RawLogicProblem(BaseModel):
     premises: list[str]
     question: str | None = None
     choices: dict[str, str] = Field(default_factory=dict)
+    choice_types: dict[str, str] = Field(default_factory=dict)
 
 
 def normalize_whitespace(text: str) -> str:
@@ -79,10 +80,23 @@ def load_problem(raw: dict) -> RawLogicProblem:
         if explicit_choices
         else extracted_choices
     )
+    choice_types = {key: classify_choice_text(value) for key, value in choices.items()}
 
     return RawLogicProblem(
         id=raw.get("id", "unknown"),
         premises=premises,
         question=question_stem if question_stem else None,
         choices=choices,
+        choice_types=choice_types,
     )
+
+
+def classify_choice_text(text: str) -> str:
+    clean = normalize_whitespace(text)
+    if not clean:
+        return "open_ended"
+    if re.search(r"[¬∧∨()]", clean) or "->" in clean or "→" in clean:
+        return "symbolic_formula"
+    if len(clean.split()) > 2:
+        return "natural_language"
+    return "open_ended"

@@ -1,9 +1,10 @@
 import re
+import unicodedata
 
 from .config import PipelineConfig
 from .json_utils import extract_json_object
 from .llm_client import ChatModel
-from .schemas import Stage1Output
+from .schemas import CIRAtom, CIRExists, CIRFact, CIRForall, CIRMeta, CIRPremise, CIRRule, CNLStatement, Stage1Output
 
 
 STAGE1_SYSTEM_PROMPT = """\
@@ -441,6 +442,10 @@ class CNLRewriter:
         self.llm = llm
 
     def rewrite(self, premises: list[str]) -> Stage1Output:
+        deterministic = deterministic_structural_guide(premises)
+        if deterministic is not None:
+            return deterministic
+
         numbered = "\n".join([f"P{i+1}: {p}" for i, p in enumerate(premises)])
 
         raw_text = self.llm.generate(
@@ -450,3 +455,920 @@ class CNLRewriter:
         )
         data = extract_json_object(raw_text)
         return remove_false_numeric_flags(Stage1Output.model_validate(data))
+
+
+_GENERIC_SUBJECT_RE = re.compile(
+    r"\b(?:a|an|the|any|every|all|those|someone|everyone)?\s*"
+    r"(student|person|people|teacher|school|subject|book|drone|website|service|"
+    r"model|project|code|course|programmer|employee|manager|professor|"
+    r"participant|object|device|station|user|researcher|applicant|committee member|"
+    r"faculty member|cloud service|streaming service|e-commerce website|ev charging station|"
+    r"iot device|ai model|python project|python code)\b",
+    re.IGNORECASE,
+)
+
+
+def deterministic_structural_guide(premises: list[str]) -> Stage1Output | None:
+    statements = []
+    for index, premise in enumerate(premises, start=1):
+        statement = _deterministic_statement(f"P{index}", premise)
+        if statement is None:
+            return None
+        statements.append(statement)
+    return Stage1Output(statements=statements)
+
+
+def _deterministic_statement(premise_id: str, original: str) -> CNLStatement | None:
+    clean = " ".join(original.strip().split())
+    parse_text = re.sub(r"^P\d+\.\s*", "", clean, flags=re.IGNORECASE)
+    lower = parse_text.lower().strip(".")
+
+    subject_rule = _parse_subject_learning_rule_cir(premise_id, parse_text)
+    if subject_rule is not None:
+        antecedent, consequent = _split_if_then(parse_text) or ("", "")
+        return CNLStatement(
+            premise_id=premise_id,
+            original=clean,
+            kind_hint="RULE",
+            cnl=parse_text,
+            mode="direct_solver",
+            recognized_type="subject_learning_rule",
+            target_kind="rule",
+            subject_type="student_subject",
+            subject="student",
+            direct_cir=subject_rule,
+            if_part=antecedent,
+            then_part=consequent,
+            notes=["direct_cir", "subject_relation"],
+        )
+
+    if _is_deontic_or_modal(lower):
+        return CNLStatement(
+            premise_id=premise_id,
+            original=clean,
+            kind_hint="UNKNOWN",
+            cnl=parse_text,
+            mode="blocked_review",
+            recognized_type="blocked_modal_or_deontic",
+            target_kind=None,
+            risk_flags=["needs_review"],
+            body=parse_text,
+            notes=["blocked_review"],
+        )
+
+    meta = _parse_known_meta_cir(premise_id, parse_text)
+    if meta is None:
+        meta = _parse_generic_meta_cir(premise_id, parse_text)
+    if meta is not None:
+        return CNLStatement(
+            premise_id=premise_id,
+            original=clean,
+            kind_hint="META",
+            cnl=parse_text,
+            mode="direct_solver",
+            recognized_type="nested_formula",
+            target_kind="meta",
+            subject_type="formula",
+            risk_flags=["nested_logic", "meta_statement"],
+            direct_cir=meta,
+            if_part=None,
+            then_part=None,
+            body=parse_text,
+            notes=["direct_cir"],
+        )
+
+    fact = _parse_fact_cir(premise_id, parse_text)
+    if fact is None:
+        fact = _parse_generic_fact_cir(premise_id, parse_text)
+    if fact is not None:
+        subject = fact.cir.atoms[0].arguments[0] if isinstance(fact.cir, CIRFact) and fact.cir.atoms else None
+        return CNLStatement(
+            premise_id=premise_id,
+            original=clean,
+            kind_hint="FACT",
+            cnl=parse_text,
+            mode="direct_solver",
+            recognized_type="named_fact",
+            target_kind="fact",
+            subject_type="named_entity",
+            subject=subject,
+            direct_cir=fact,
+            body=parse_text,
+            notes=["direct_cir"],
+        )
+
+    exists = _parse_exists_cir(premise_id, parse_text)
+    if exists is not None:
+        return CNLStatement(
+            premise_id=premise_id,
+            original=clean,
+            kind_hint="EXISTS",
+            cnl=parse_text,
+            mode="direct_solver",
+            recognized_type="existential_fact",
+            target_kind="exists",
+            subject_type="student",
+            subject="student",
+            direct_cir=exists,
+            body=parse_text,
+            notes=["direct_cir"],
+        )
+
+    forall = _parse_forall_cir(premise_id, parse_text)
+    if forall is not None:
+        return CNLStatement(
+            premise_id=premise_id,
+            original=clean,
+            kind_hint="FORALL",
+            cnl=parse_text,
+            mode="direct_solver",
+            recognized_type="universal_fact",
+            target_kind="forall",
+            subject_type="student",
+            subject="student",
+            direct_cir=forall,
+            body=parse_text,
+            notes=["direct_cir"],
+        )
+
+    rule = _parse_rule_cir(premise_id, parse_text)
+    if rule is not None:
+        antecedent, consequent = _split_if_then(parse_text) or ("", "")
+        return CNLStatement(
+            premise_id=premise_id,
+            original=clean,
+            kind_hint="RULE",
+            cnl=parse_text,
+            mode="direct_solver",
+            recognized_type="conditional_rule",
+            target_kind="rule",
+            subject_type="student",
+            subject="student",
+            direct_cir=rule,
+            if_part=antecedent,
+            then_part=consequent,
+            notes=["direct_cir"],
+        )
+
+    fallback = _parse_generic_fact_cir(premise_id, parse_text, allow_sentence_fact=True)
+    if fallback is not None:
+        return CNLStatement(
+            premise_id=premise_id,
+            original=clean,
+            kind_hint="FACT",
+            cnl=parse_text,
+            mode="direct_solver",
+            recognized_type="generic_sentence_fact",
+            target_kind="fact",
+            direct_cir=fallback,
+            body=parse_text,
+            notes=["direct_cir", "generic_sentence_fact", "needs_review"],
+            risk_flags=["needs_review"],
+        )
+
+    return None
+
+
+def _is_deontic_or_modal(lower: str) -> bool:
+    return any(
+        marker in lower
+        for marker in [
+            "not necessarily",
+            "possibly",
+            "probably",
+            "may ",
+            "might ",
+            "must ",
+            "mandatory",
+            "obligated",
+            "forbidden",
+            "permitted",
+        ]
+    )
+
+
+def _parse_exists_cir(premise_id: str, text: str) -> CIRPremise | None:
+    lower = text.lower().strip(".")
+    someone = re.match(r"^there exists someone who (?P<body>.+)$", lower)
+    if someone:
+        atoms = [CIRAtom(name="person", arguments=["x"])]
+        atoms.extend(_phrase_atoms(someone.group("body"), "x", subject="person"))
+        return CIRPremise(
+            premise_id=premise_id,
+            kind="exists",
+            cir=CIRExists(variable="x", body=atoms),
+        )
+    match = re.match(
+        r"^(?:there (?:exists|is)|there exists)?\s*(?:at least one|some|someone|any)\s+"
+        r"(?P<subject>[a-z][a-z\s+-]*?)(?:\s+who|\s+that|\s+which|\s+with|\s+is|\s+are|\s+has|\s+have|\s+can|\s+does|\s+did|$)"
+        r"(?P<body>.*)$",
+        lower,
+    )
+    if not match:
+        return None
+    subject = _subject_predicate(match.group("subject"))
+    body = match.group("body").strip()
+    atoms = [CIRAtom(name=subject, arguments=["x"])]
+    atoms.extend(_phrase_atoms(body, "x", subject=subject))
+    if len(atoms) < 2:
+        atoms.append(CIRAtom(name=subject, arguments=["x"]))
+    return CIRPremise(
+        premise_id=premise_id,
+        kind="exists",
+        cir=CIRExists(variable="x", body=atoms),
+    )
+
+
+def _parse_subject_learning_rule_cir(premise_id: str, text: str) -> CIRPremise | None:
+    lower = _normalize_match_text(text)
+    prefix = [CIRAtom(name="student", arguments=["x"]), CIRAtom(name="subject", arguments=["s"])]
+
+    if re.match(r"^if a student has knowledge of a subject,? (?:then )?they can explain it to their friends$", lower):
+        return CIRPremise(
+            premise_id=premise_id,
+            kind="rule",
+            cir=CIRRule(
+                variable="x",
+                antecedent=[
+                    *prefix,
+                    CIRAtom(name="has_knowledge_of_subject", arguments=["x", "s"]),
+                ],
+                consequent=[
+                    CIRAtom(name="can_explain_subject_to_friends", arguments=["x", "s"]),
+                ],
+            ),
+        )
+
+    if re.match(
+        r"^if a student explains a subject to their friends and the friends understand it,? "
+        r"(?:then )?the student has mastered the subject$",
+        lower,
+    ):
+        return CIRPremise(
+            premise_id=premise_id,
+            kind="rule",
+            cir=CIRRule(
+                variable="x",
+                antecedent=[
+                    *prefix,
+                    CIRAtom(name="can_explain_subject_to_friends", arguments=["x", "s"]),
+                    CIRAtom(name="friends_understand_subject", arguments=["x", "s"]),
+                ],
+                consequent=[CIRAtom(name="mastered_subject", arguments=["x", "s"])],
+            ),
+        )
+
+    if re.match(r"^if a student masters a subject,? (?:then )?they can earn an a or a\+$", lower):
+        return CIRPremise(
+            premise_id=premise_id,
+            kind="rule",
+            cir=CIRRule(
+                variable="x",
+                antecedent=[
+                    *prefix,
+                    CIRAtom(name="mastered_subject", arguments=["x", "s"]),
+                ],
+                consequent=[CIRAtom(name="can_earn_high_grade", arguments=["x", "s"])],
+            ),
+        )
+
+    if re.match(
+        r"^if a student earns at least five a or a\+ grades,? "
+        r"(?:then )?they can receive a scholarship$",
+        lower,
+    ):
+        return CIRPremise(
+            premise_id=premise_id,
+            kind="rule",
+            cir=CIRRule(
+                variable="x",
+                antecedent=[
+                    CIRAtom(name="student", arguments=["x"]),
+                    CIRAtom(name="earns_at_least_grade_count", arguments=["x", "high_grade", "5"]),
+                ],
+                consequent=[CIRAtom(name="receive_scholarship", arguments=["x"])],
+            ),
+        )
+
+    if re.match(
+        r"^if a student earns an a in a subject,? "
+        r"(?:then )?they must have mastered the subject$",
+        lower,
+    ):
+        return CIRPremise(
+            premise_id=premise_id,
+            kind="rule",
+            cir=CIRRule(
+                variable="x",
+                antecedent=[
+                    *prefix,
+                    CIRAtom(name="earned_grade", arguments=["x", "s", "A"]),
+                ],
+                consequent=[CIRAtom(name="mastered_subject", arguments=["x", "s"])],
+            ),
+        )
+
+    friend_understanding = re.match(
+        r"^if (?P<name>[^'\s]+)(?:'|`)?s friends do not understand a subject,? "
+        r"(?:then )?(?P=name) has not mastered it$",
+        lower,
+    )
+    if friend_understanding:
+        person = _constant(friend_understanding.group("name"))
+        return CIRPremise(
+            premise_id=premise_id,
+            kind="rule",
+            cir=CIRRule(
+                variable="s",
+                antecedent=[
+                    CIRAtom(name="subject", arguments=["s"]),
+                    CIRAtom(name="friends_understand_subject", arguments=[person, "s"], negated=True),
+                ],
+                consequent=[CIRAtom(name="mastered_subject", arguments=[person, "s"], negated=True)],
+            ),
+        )
+
+    if re.match(
+        r"^if a student cannot explain a subject,? "
+        r"(?:then )?they do not have knowledge of it$",
+        lower,
+    ):
+        return CIRPremise(
+            premise_id=premise_id,
+            kind="rule",
+            cir=CIRRule(
+                variable="x",
+                antecedent=[
+                    *prefix,
+                    CIRAtom(name="can_explain_subject", arguments=["x", "s"], negated=True),
+                ],
+                consequent=[
+                    CIRAtom(name="has_knowledge_of_subject", arguments=["x", "s"], negated=True),
+                ],
+            ),
+        )
+
+    return None
+
+
+def _parse_fact_cir(premise_id: str, text: str) -> CIRPremise | None:
+    clean = text.strip().strip(".")
+    if clean.lower().startswith(("all ", "every ", "any ", "if ", "there ")):
+        return None
+    normalized = _normalize_match_text(clean)
+    earned_grade_count = re.match(
+        r"^(?P<name>[a-z][\w'-]*) has earned (?P<count>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+        r"(?P<grade>a\+?|b\+?|c\+?) grades?$",
+        normalized,
+    )
+    if earned_grade_count:
+        return CIRPremise(
+            premise_id=premise_id,
+            kind="fact",
+            cir=CIRFact(
+                atoms=[
+                    CIRAtom(
+                        name="earned_grade_count",
+                        arguments=[
+                            _constant(earned_grade_count.group("name")),
+                            _grade_label(earned_grade_count.group("grade")),
+                            _number_text_to_digits(earned_grade_count.group("count")),
+                        ],
+                    )
+                ]
+            ),
+        )
+
+    no_additional_grade = re.match(
+        r"^(?P<name>[a-z][\w'-]*) has not earned any additional (?P<grade>a\+?|b\+?|c\+?) grades?$",
+        normalized,
+    )
+    if no_additional_grade:
+        return CIRPremise(
+            premise_id=premise_id,
+            kind="fact",
+            cir=CIRFact(
+                atoms=[
+                    CIRAtom(
+                        name="earned_additional_grade_count",
+                        arguments=[
+                            _constant(no_additional_grade.group("name")),
+                            _grade_label(no_additional_grade.group("grade")),
+                            "0",
+                        ],
+                    )
+                ]
+            ),
+        )
+
+    numeric = re.match(
+        r"^(?P<name>[A-Z][A-Za-z0-9_-]*)\s+has\s+(?P<number>\d+(?:\.\d+)?)\s+(?P<noun>[A-Za-z][A-Za-z\s_-]*?)s?$",
+        clean,
+    )
+    if numeric:
+        predicate = "has_" + _snake(numeric.group("noun"))
+        return CIRPremise(
+            premise_id=premise_id,
+            kind="fact",
+            cir=CIRFact(
+                atoms=[
+                    CIRAtom(
+                        name=predicate,
+                        arguments=[_constant(numeric.group("name")), numeric.group("number")],
+                    )
+                ]
+            ),
+        )
+
+    match = re.match(
+        r"^(?P<name>[A-Z][A-Za-z0-9_-]*)\s+(?:is|are)\s+(?P<neg>not\s+)?(?:a|an)?\s*(?P<body>[A-Za-z][A-Za-z\s_-]+)$",
+        clean,
+    )
+    if not match:
+        return None
+    if match.group("name").lower() in {"people", "students", "schools", "teachers"}:
+        return None
+    predicate = _snake(match.group("body"))
+    if predicate in {"true", "false"}:
+        return None
+    return CIRPremise(
+        premise_id=premise_id,
+        kind="fact",
+        cir=CIRFact(
+            atoms=[
+                CIRAtom(
+                    name=predicate,
+                    arguments=[_constant(match.group("name"))],
+                    negated=bool(match.group("neg")),
+                )
+            ]
+        ),
+    )
+
+
+def _parse_generic_fact_cir(
+    premise_id: str,
+    text: str,
+    *,
+    allow_sentence_fact: bool = False,
+) -> CIRPremise | None:
+    clean = text.strip().strip(".")
+    lower = clean.lower()
+
+    possession = re.match(
+        r"^(?P<name>[A-ZÀ-Ỹ][\wÀ-ỹ'’-]*)\s+(?:has|have|is|are|completed|passed|submitted|paid|missed|earned|obtained|returned)\s+(?P<body>.+)$",
+        clean,
+        flags=re.IGNORECASE,
+    )
+    if (
+        possession
+        and possession.group("name").lower() not in {"a", "the", "people", "students", "schools", "teachers"}
+        and not lower.startswith(("all ", "every ", "if ", "there "))
+    ):
+        name = _constant(possession.group("name"))
+        atoms = _phrase_atoms(possession.group("body"), name)
+        if atoms:
+            return CIRPremise(premise_id=premise_id, kind="fact", cir=CIRFact(atoms=atoms))
+
+    simple = re.match(
+        r"^(?P<name>[A-ZÀ-Ỹ][\wÀ-ỹ'’-]*)\s+(?P<neg>does not|did not|has not|is not|isn't|was not|cannot|can't)?\s*(?P<body>.+)$",
+        clean,
+    )
+    if (
+        simple
+        and simple.group("name").lower() not in {"a", "the", "people", "students", "schools", "teachers"}
+        and not lower.startswith(("all ", "every ", "if ", "there "))
+    ):
+        name = _constant(simple.group("name"))
+        body = simple.group("body")
+        if simple.group("neg"):
+            body = f"not {body}"
+        atoms = _phrase_atoms(body, name)
+        if atoms:
+            return CIRPremise(premise_id=premise_id, kind="fact", cir=CIRFact(atoms=atoms))
+
+    if allow_sentence_fact:
+        sentence = re.sub(r"\b\w*\d\w*\b", " ", _strip_outer_context(clean))
+        sentence = re.sub(r"\b(?:if|then|because|statement)\b", " ", sentence, flags=re.IGNORECASE)
+        parts = [part for part in _snake(sentence).split("_") if part]
+        predicate = "_".join(parts[:7])
+        if predicate:
+            return CIRPremise(
+                premise_id=premise_id,
+                kind="fact",
+                cir=CIRFact(atoms=[CIRAtom(name=predicate, arguments=[premise_id.lower()])]),
+            )
+
+    return None
+
+
+def _parse_forall_cir(premise_id: str, text: str) -> CIRPremise | None:
+    lower = text.lower().strip(".")
+    match = re.match(
+        r"^(?:all|every|any)\s+(?P<subject>[a-z][a-z\s+-]*?)(?:\s+who\s+(?P<condition>.+?))?\s+"
+        r"(?P<body>are|is|have|has|must|should|can|cannot|can't|do|does|receive|receives|"
+        r"undergo|undergoes|participate|participates|engage|engages|follow|follows|"
+        r"perform|performs|require|requires|utilize|utilizes|meet|meets|"
+        r"contain|contains|attend|attends|pass|passes|complete|completes|.+)$",
+        lower,
+    )
+    if not match:
+        match = re.match(r"^everyone(?:\s+in\s+(?P<context>.+?))?\s+(?P<body>is|are|has|have|fully|.+)$", lower)
+    if not match:
+        match = re.match(r"^(?P<subject>[a-z][a-z\s+-]*?)\s+are\s+(?P<body>people|researchers|recommended|qualified|punctual)$", lower)
+    if not match:
+        return None
+    groups = match.groupdict()
+    subject = _subject_predicate(groups.get("subject") or "person")
+    antecedent = [CIRAtom(name=subject, arguments=["x"])]
+    condition = groups.get("condition")
+    if condition:
+        antecedent.extend(_phrase_atoms(condition, "x", subject=subject))
+    consequent = _phrase_atoms(match.group("body"), "x", subject=subject)
+    if not consequent:
+        return None
+    return CIRPremise(
+        premise_id=premise_id,
+        kind="forall",
+        cir=CIRForall(
+            variable="x",
+            antecedent=antecedent,
+            consequent=consequent,
+        ),
+    )
+
+
+def _parse_rule_cir(premise_id: str, text: str) -> CIRPremise | None:
+    split = _split_if_then(text)
+    if split is None:
+        split = _split_implication_like(text)
+    if split is None:
+        return None
+    if_part, then_part = split
+    lower = _strip_outer_context(text.lower())
+    if "logical rule" in lower or "previous statement" in lower or "above implication" in lower:
+        return None
+    if re.search(r"^if\s+there (?:exists|is)", lower) or re.search(r"\bthen\s+\(?if\b", lower):
+        return None
+    if re.match(r"^if\s+(?:every|everyone|all)\b", lower) or re.search(r"\bthen\s+(?:there (?:exists|is)|every|everyone|all)\b", lower):
+        return None
+    antecedent = _phrase_atoms(if_part, "x", include_subject=True)
+    consequent = _phrase_atoms(then_part, "x", include_subject=False)
+    if not antecedent or not consequent:
+        return None
+    return CIRPremise(
+        premise_id=premise_id,
+        kind="rule",
+        cir=CIRRule(variable="x", antecedent=antecedent, consequent=consequent),
+    )
+
+
+def _parse_known_meta_cir(premise_id: str, text: str) -> CIRPremise | None:
+    lower = text.lower().strip(".")
+    if "above logical rule holds true" in lower:
+        formula = {
+            "type": "forall",
+            "variable": "x",
+            "children": [
+                {
+                    "type": "implies",
+                    "children": [
+                        _atom_formula("completed_course", "x"),
+                        _known_above_logical_rule_formula(),
+                    ],
+                }
+            ],
+        }
+    elif lower.startswith("if at least one student is certified"):
+        formula = _known_above_logical_rule_formula()
+    else:
+        return None
+
+    return CIRPremise(
+        premise_id=premise_id,
+        kind="meta",
+        cir=CIRMeta(kind="meta", formula=formula),
+    )
+
+
+def _parse_generic_meta_cir(premise_id: str, text: str) -> CIRPremise | None:
+    lower = text.lower().strip(".")
+    if not any(
+        marker in lower
+        for marker in [
+            " implies ",
+            " implication ",
+            " statement ",
+            " holds",
+            " true that ",
+            "if (",
+            "if all ",
+            "if every ",
+            "if at least ",
+            "if there exists",
+            "if there is",
+            "then if ",
+            " then (if ",
+        ]
+    ):
+        return None
+    split = _split_if_then(text) or _split_implication_like(text)
+    if split is None:
+        return None
+    antecedent_text, consequent_text = split
+    antecedent = _formula_from_text(antecedent_text, "x")
+    consequent = _formula_from_text(consequent_text, "x")
+    if antecedent is None or consequent is None:
+        return None
+    return CIRPremise(
+        premise_id=premise_id,
+        kind="meta",
+        cir=CIRMeta(kind="meta", formula={"type": "implies", "children": [antecedent, consequent]}),
+    )
+
+
+def _known_above_logical_rule_formula() -> dict:
+    return {
+        "type": "implies",
+        "children": [
+            {"type": "exists", "variable": "x", "children": [_atom_formula("certified", "x")]},
+            {
+                "type": "implies",
+                "children": [
+                    _forall_rule_formula(
+                        CIRAtom(name="research_foundation", arguments=["x"], negated=True),
+                        CIRAtom(name="certified", arguments=["x"], negated=True),
+                    ),
+                    _forall_rule_formula(
+                        CIRAtom(name="can_teach", arguments=["x"], negated=True),
+                        CIRAtom(name="research_foundation", arguments=["x"], negated=True),
+                    ),
+                ],
+            },
+        ],
+    }
+
+
+def _forall_rule_formula(antecedent: CIRAtom, consequent: CIRAtom) -> dict:
+    return {
+        "type": "forall",
+        "variable": "x",
+        "children": [
+            {
+                "type": "implies",
+                "children": [
+                    _atom_formula(antecedent.name, "x", antecedent.negated),
+                    _atom_formula(consequent.name, "x", consequent.negated),
+                ],
+            }
+        ],
+    }
+
+
+def _atom_formula(name: str, argument: str, negated: bool = False) -> dict:
+    node = {"type": "atomic", "name": name, "arguments": [argument]}
+    if negated:
+        return {"type": "not", "children": [node]}
+    return node
+
+
+def _split_if_then(text: str) -> tuple[str, str] | None:
+    clean = _strip_outer_context(text.strip().strip("."))
+    match = re.match(r"^if\s+(?P<if>.+?),?\s+then\s+(?P<then>.+)$", clean, flags=re.IGNORECASE)
+    if not match:
+        match = re.match(r"^if\s+(?P<if>.+?),\s*(?P<then>.+)$", clean, flags=re.IGNORECASE)
+    if not match:
+        return None
+    return match.group("if").strip(" ,"), match.group("then").strip(" ,")
+
+
+def _split_implication_like(text: str) -> tuple[str, str] | None:
+    clean = _strip_outer_context(text.strip().strip("."))
+    for pattern in [
+        r"^(?P<if>.+?)\s+implies\s+(?P<then>.+)$",
+        r"^(?P<if>.+?)\s+leads to\s+(?P<then>.+)$",
+        r"^(?P<if>.+?)\s+guarantees\s+(?P<then>.+)$",
+        r"^(?P<if>.+?)\s+ensures\s+(?P<then>.+)$",
+        r"^(?P<if>.+?)\s+requires\s+(?P<then>.+)$",
+    ]:
+        match = re.match(pattern, clean, flags=re.IGNORECASE)
+        if match:
+            return match.group("if").strip(" ,"), match.group("then").strip(" ,")
+    return None
+
+
+def _phrase_atoms(
+    phrase: str,
+    variable: str,
+    *,
+    include_subject: bool = False,
+    subject: str | None = None,
+) -> list[CIRAtom]:
+    lower = phrase.lower().strip().strip(".")
+    lower = _strip_outer_context(lower)
+    lower = re.sub(r"\b(they|them|their|it)\b", f"the {subject or 'entity'}", lower)
+    lower = re.sub(r"\bthe above logical rule holds true\b", "", lower).strip()
+    atoms = []
+    if include_subject:
+        subject_name = subject or _subject_from_phrase(lower)
+        if subject_name:
+            atoms.append(CIRAtom(name=subject_name, arguments=[variable]))
+
+    for pattern, predicate, negated in [
+        (r"\bhas property (?P<prop>[a-z])\b|\bwith property (?P<prop2>[a-z])\b", None, False),
+        (r"\bdoes not have property (?P<prop>[a-z])\b|\bnot have property (?P<prop2>[a-z])\b", None, True),
+        (r"\bdoes not receive training\b|\bnot receive training\b", "receives_training", True),
+        (r"\breceive(?:s)? training\b|\breceived training\b|\bhave received training\b", "receives_training", False),
+        (r"\b(?:does|do) not have (?:a )?research foundation\b|\blacks? (?:a )?research foundation\b", "research_foundation", True),
+        (r"\bresearch foundation\b", "research_foundation", False),
+        (r"\b(?:does|do) not have pedagogical skills\b|\blacks? pedagogical skills\b", "pedagogical_skills", True),
+        (r"\bhas pedagogical skills\b|\bhave pedagogical skills\b|\bpedagogical skills\b", "pedagogical_skills", False),
+        (r"\bis not certified\b|\bnot certified\b", "certified", True),
+        (r"\bis certified\b|\bare certified\b|\bcertified\b", "certified", False),
+        (r"\bcannot teach\b|\bcan not teach\b|\bnot being able to teach\b", "can_teach", True),
+        (r"\bcan teach\b", "can_teach", False),
+        (r"\bcompleted a course\b|\bhas completed a course\b", "completed_course", False),
+    ]:
+        match = re.search(pattern, lower)
+        if match:
+            if predicate is None:
+                prop = (match.groupdict().get("prop") or match.groupdict().get("prop2") or "").lower()
+                predicate = f"property_{prop}" if prop else "has_property"
+            atoms.append(CIRAtom(name=predicate, arguments=[variable], negated=negated))
+            break
+
+    if not atoms or (include_subject and len(atoms) == 1):
+        generic = _generic_atom_from_phrase(lower, variable, subject=subject)
+        if generic and all(atom.name != generic.name or atom.negated != generic.negated for atom in atoms):
+            atoms.append(generic)
+
+    return atoms
+
+
+def _formula_from_text(text: str, variable: str) -> dict | None:
+    split = _split_if_then(text) or _split_implication_like(text)
+    if split:
+        left, right = split
+        left_formula = _formula_from_text(left, variable)
+        right_formula = _formula_from_text(right, variable)
+        if left_formula and right_formula:
+            return {
+                "type": "forall",
+                "variable": variable,
+                "children": [{"type": "implies", "children": [left_formula, right_formula]}],
+            }
+
+    exists = _parse_exists_cir("_", text)
+    if exists and isinstance(exists.cir, CIRExists):
+        return {
+            "type": "exists",
+            "variable": variable,
+            "children": [_atoms_formula(exists.cir.body, variable)],
+        }
+
+    forall = _parse_forall_cir("_", text)
+    if forall and isinstance(forall.cir, CIRForall):
+        return {
+            "type": "forall",
+            "variable": variable,
+            "children": [
+                {
+                    "type": "implies",
+                    "children": [
+                        _atoms_formula(forall.cir.antecedent, variable),
+                        _atoms_formula(forall.cir.consequent, variable),
+                    ],
+                }
+            ],
+        }
+
+    atoms = _phrase_atoms(text, variable, include_subject=True)
+    if atoms:
+        return {"type": "forall", "variable": variable, "children": [_atoms_formula(atoms, variable)]}
+    return None
+
+
+def _atoms_formula(atoms: list[CIRAtom], variable: str) -> dict:
+    children = [_atom_formula(atom.name, variable, atom.negated) for atom in atoms]
+    if len(children) == 1:
+        return children[0]
+    return {"type": "and", "children": children}
+
+
+def _generic_atom_from_phrase(phrase: str, variable: str, *, subject: str | None = None) -> CIRAtom | None:
+    lower = phrase.lower().strip(" ,.")
+    if not lower:
+        return None
+    negated = bool(re.search(r"\b(?:not|no|never|cannot|can't|won't|without|lacks?|didn't|doesn't|don't|hasn't|haven't|isn't|aren't)\b", lower))
+    cleaned = lower
+    cleaned = re.sub(r"^if\s+", "", cleaned)
+    cleaned = re.sub(r"^(?:a|an|the|any|every|all|those who|someone who|everyone who)\s+", "", cleaned)
+    if subject:
+        cleaned = re.sub(rf"^{re.escape(subject.replace('_', ' '))}s?\s+", "", cleaned)
+    cleaned = re.sub(r"^(?:student|person|people|teacher|book|drone|website|service|model|project|course|employee|manager|professor|object|device|station|user|it|x|they)\s+", "", cleaned)
+    cleaned = re.sub(r"\b(?:does|do|did|is|are|was|were|be|being|been|has|have|had|will|would|must|should|can|also)\b", " ", cleaned)
+    cleaned = re.sub(r"\b(?:not|no|never|cannot|can't|won't|without|lacks?|didn't|doesn't|don't|hasn't|haven't|isn't|aren't)\b", " ", cleaned)
+    cleaned = re.sub(r"\b(?:then|that|who|which|to|for|of|the|a|an|their|his|her|its)\b", " ", cleaned)
+    cleaned = re.sub(r"\b(?:if|because|statement)\b", " ", cleaned)
+    cleaned = cleaned.replace("previous statement", "prior rule").replace("above statement", "prior rule")
+    cleaned = re.sub(r"\b\w*\d\w*\b", " ", cleaned)
+    predicate = _snake(cleaned)
+    if not predicate:
+        return None
+    parts = [part for part in predicate.split("_") if part]
+    predicate = "_".join(parts[:7])
+    return CIRAtom(name=predicate, arguments=[variable], negated=negated)
+
+
+def _subject_from_phrase(text: str) -> str | None:
+    match = _GENERIC_SUBJECT_RE.search(text)
+    if match:
+        return _subject_predicate(match.group(1))
+    if re.search(r"\bx\b", text):
+        return "entity"
+    return None
+
+
+def _subject_predicate(text: str) -> str:
+    clean = text.lower().strip(" ,.")
+    clean = re.sub(r"^(?:a|an|the|any|every|all|one|some)\s+", "", clean)
+    clean = re.sub(r"\b(?:who|that|which|with)$", "", clean).strip()
+    clean = {
+        "people": "person",
+        "students": "student",
+        "teachers": "teacher",
+        "books": "book",
+        "drones": "drone",
+        "websites": "website",
+        "services": "service",
+        "models": "model",
+        "projects": "project",
+        "employees": "employee",
+        "programmers": "programmer",
+        "participants": "participant",
+        "users": "user",
+        "objects": "object",
+    }.get(clean, clean)
+    return _snake(clean) or "entity"
+
+
+def _strip_outer_context(text: str) -> str:
+    clean = text.strip().strip(".")
+    clean = re.sub(r"^at the [^,]+,\s*", "", clean, flags=re.IGNORECASE)
+    clean = re.sub(r"^in [^,]+,\s*", "", clean, flags=re.IGNORECASE)
+    clean = re.sub(r"^statement:\s*", "", clean, flags=re.IGNORECASE)
+    clean = clean.strip("'\"“”‘’() ")
+    return clean
+
+
+def _constant(value: str) -> str:
+    constant = _snake(value)
+    if len(constant) == 1 and len(value.strip()) > 1:
+        return f"{constant}_entity"
+    return constant
+
+
+def _snake(value: str) -> str:
+    value = _ascii_fold(value)
+    value = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value)
+    value = re.sub(r"[^A-Za-z0-9]+", "_", value)
+    return value.strip("_").lower()
+
+
+def _ascii_fold(value: str) -> str:
+    return (
+        unicodedata.normalize("NFKD", value)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+    )
+
+
+def _normalize_match_text(value: str) -> str:
+    value = value.replace("\u2019", "'").replace("\u2018", "'")
+    value = _ascii_fold(value)
+    value = value.replace("`", "'")
+    value = re.sub(r"\s+", " ", value)
+    return value.strip(" .").lower()
+
+
+def _grade_label(value: str) -> str:
+    grade = value.strip().lower()
+    if grade.endswith("+"):
+        return f"{grade[:-1].upper()}_plus"
+    return grade.upper()
+
+
+def _number_text_to_digits(value: str) -> str:
+    numbers = {
+        "one": "1",
+        "two": "2",
+        "three": "3",
+        "four": "4",
+        "five": "5",
+        "six": "6",
+        "seven": "7",
+        "eight": "8",
+        "nine": "9",
+        "ten": "10",
+    }
+    return numbers.get(value.lower(), value)

@@ -1,5 +1,9 @@
 # Walkthrough: Neurosymbolic Logic Parser Pipeline
 
+> Current migration note: the active parser is CIR-first. Stage 1 may emit direct CIR,
+> Stage 3 compiles CIR to `LogicNode` in Python, and symbolic multiple-choice formulas
+> are parsed as formulas instead of text predicates.
+
 ## What Was Built
 
 A complete **parser-only** neurosymbolic pipeline that takes `Premise-NL + Question` and produces validated `LogicNode AST` — ready for a future solver. The solver (Stage 6-7) is excluded per request.

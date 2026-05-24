@@ -327,6 +327,8 @@ def is_direct_solver_ready_formula(formula: Any) -> bool:
         if len(children) != 1:
             return False
         child = children[0]
+        if isinstance(child, dict) and child.get("type") in {"exists", "forall"}:
+            return is_direct_solver_ready_formula(child)
         if isinstance(child, dict) and child.get("type") == "implies":
             implication_children = child.get("children", [])
             if len(implication_children) != 2:
@@ -667,6 +669,8 @@ def _is_direct_solver_ready_logic_node(node: LogicNode) -> bool:
         if len(node.children) != 1:
             return False
         child = node.children[0]
+        if child.type in {"exists", "forall"}:
+            return _is_direct_solver_ready_logic_node(child)
         if child.type == "implies":
             ant, cons = child.children
             return not contains_formula_level_node(ant) and not contains_formula_level_node(cons)

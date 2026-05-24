@@ -19705,3 +19705,837 @@ Return repaired JSON with the same schema.
 
 
 [MODEL OUTPUT]
+
+================================================================================
+LLM CALL 1 | 2026-05-24T16:53:54 | provider=huggingface | model=Qwen/Qwen3.5-4B
+================================================================================
+[SYSTEM PROMPT]
+/no_think
+
+You are Stage 3-lite of a neurosymbolic logic parser.
+You are a JSON predicate-frame extractor, not a solver.
+
+Your job:
+For each CNL statement, identify only:
+- predicate names
+- predicate arguments
+- negation
+- rule relationship: antecedent vs consequent vs body
+- one main quantified variable when present
+
+Do NOT build recursive AST JSON. Python will build the AST deterministically.
+Do NOT solve the question.
+Do NOT add facts that are not in the premise.
+
+Output rules:
+- Output ONLY valid JSON.
+- First character must be {.
+- Do not write analysis.
+- Do not write explanations.
+- Do not write markdown.
+- Do not include comments.
+- End after the JSON object with <END_JSON>.
+
+Predicate rules:
+1. Predicate names must be lowercase snake_case.
+2. Do not put negation in predicate names. Use "negated": true.
+3. Use variables like x, y for generic quantified entities.
+4. Use constants like john, mary, tuan, quantum_lab for named entities.
+5. Every atom should have at least one argument.
+6. Reuse the same predicate name for the same concept across all premises.
+
+Frame shape:
+{
+  "frames": [
+    {
+      "premise_id": "P1",
+      "kind": "RULE",
+      "cnl": "...",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {"name": "student", "arguments": ["x"], "negated": false}
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {"name": "eligible", "arguments": ["x"], "negated": false}
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    }
+  ]
+}
+
+Use these fields by kind:
+- FACT: put all atoms in body. Use constants for named individuals.
+- EXISTS: put all asserted atoms in body and set variable.
+- FORALL: usually set antecedent to the class restriction and consequent to the asserted property.
+- RULE, ONLY_IF_RULE, NON_IF_RULE: set antecedent and consequent.
+- OBLIGATION_RULE: set antecedent for the situation and consequent for the obligated/permitted/forbidden predicate.
+  Use prefixes obligated_, permitted_, or forbidden_ on the consequent predicate name.
+- IFF: set antecedent and consequent.
+- META or UNKNOWN: set unsupported true unless the statement is clearly representable as flat atoms.
+
+Examples:
+
+Input:
+P1 [FORALL]: Every student is preparing for an exam.
+Output frame:
+{
+  "premise_id": "P1",
+  "kind": "FORALL",
+  "cnl": "Every student is preparing for an exam.",
+  "variable": "x",
+  "antecedent": {"connective": "and", "atoms": [{"name": "student", "arguments": ["x"], "negated": false}]},
+  "consequent": {"connective": "and", "atoms": [{"name": "preparing_for_exam", "arguments": ["x"], "negated": false}]},
+  "body": null,
+  "unsupported": false,
+  "notes": []
+}
+
+Input:
+P2 [RULE]: If a student does NOT ask questions, then the student does NOT attend tutorials.
+Output frame:
+{
+  "premise_id": "P2",
+  "kind": "RULE",
+  "cnl": "If a student does NOT ask questions, then the student does NOT attend tutorials.",
+  "variable": "x",
+  "antecedent": {"connective": "and", "atoms": [
+    {"name": "student", "arguments": ["x"], "negated": false},
+    {"name": "asks_questions", "arguments": ["x"], "negated": true}
+  ]},
+  "consequent": {"connective": "and", "atoms": [
+    {"name": "attends_tutorials", "arguments": ["x"], "negated": true}
+  ]},
+  "body": null,
+  "unsupported": false,
+  "notes": []
+}
+
+Input:
+P3 [EXISTS]: There exists a student who attends tutorials.
+Output frame:
+{
+  "premise_id": "P3",
+  "kind": "EXISTS",
+  "cnl": "There exists a student who attends tutorials.",
+  "variable": "x",
+  "antecedent": null,
+  "consequent": null,
+  "body": {"connective": "and", "atoms": [
+    {"name": "student", "arguments": ["x"], "negated": false},
+    {"name": "attends_tutorials", "arguments": ["x"], "negated": false}
+  ]},
+  "unsupported": false,
+  "notes": []
+}
+
+Return exactly one JSON object with the key "frames".
+Do not output anything before the JSON.
+Do not output anything after <END_JSON>.
+
+
+[USER PROMPT]
+P1 [FORALL]: Every subject contains knowledge.
+P2 [RULE]: If a student has knowledge of a subject, they can explain it to their friends.
+P3 [RULE]: If a student explains a subject to their friends and the friends understand it, the student has mastered the subject.
+P4 [RULE]: If a student masters a subject, they can earn an A or A+.
+P5 [RULE]: If a student earns at least five A or A+ grades, they can receive a scholarship.
+P6 [FACT]: Tuấn has earned three A grades.
+P7 [FACT]: Tuấn has not earned any additional A+ grades.
+P8 [UNKNOWN]: If a student earns an A in a subject, they must have mastered the subject.
+P9 [RULE]: If Tuấn's friends do not understand a subject, Tuấn has not mastered it.
+P10 [RULE]: If a student cannot explain a subject, they do not have knowledge of it.
+
+[MODEL OUTPUT]
+{
+  "frames": [
+    {
+      "premise_id": "P1",
+      "kind": "FORALL",
+      "cnl": "Every subject contains knowledge.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "contains_knowledge",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "consequent": null,
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P2",
+      "kind": "RULE",
+      "cnl": "If a student has knowledge of a subject, they can explain it to their friends.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "has_knowledge_of_subject",
+            "arguments": [
+              "x",
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "can_explain_to_friends",
+            "arguments": [
+              "x",
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P3",
+      "kind": "RULE",
+      "cnl": "If a student explains a subject to their friends and the friends understand it, the student has mastered the subject.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "explains_subject_to_friends",
+            "arguments": [
+              "x",
+              "x"
+            ],
+            "negated": false
+          },
+          {
+            "name": "friends_understand_subject",
+            "arguments": [
+              "x",
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "has_mastered_subject",
+            "arguments": [
+              "x",
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P4",
+      "kind": "RULE",
+      "cnl": "If a student masters a subject, they can earn an A or A+.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "has_mastered_subject",
+            "arguments": [
+              "x",
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "or",
+        "atoms": [
+          {
+            "name": "can_earn_grade_A",
+            "arguments": [
+              "x",
+              "x"
+            ],
+            "negated": false
+          },
+          {
+            "name": "can_earn_grade_A_plus",
+            "arguments": [
+              "x",
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P5",
+      "kind": "RULE",
+      "cnl": "If a student earns at least five A or A+ grades, they can receive a scholarship.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "earns_at_least_five_A_or_A_plus_grades",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "can_receive_scholarship",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P6",
+      "kind": "FACT",
+      "cnl": "Tuấn has earned three A grades.",
+      "variable": "x",
+      "antecedent": null,
+      "consequent": null,
+      "body": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "has_earned_three_A_grades",
+            "arguments": [
+              "tuan"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P7",
+      "kind": "FACT",
+      "cnl": "Tuấn has not earned any additional A+ grades.",
+      "variable": "x",
+      "antecedent": null,
+      "consequent": null,
+      "body": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "has_not_earned_additional_A_plus_grades",
+            "arguments": [
+              "tuan"
+            ],
+            "negated": true
+          }
+        ]
+      },
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P8",
+      "kind": "UNKNOWN",
+      "cnl": "If a student earns an A in a subject, they must have mastered the subject.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "earns_A_in_subject",
+            "arguments": [
+              "x",
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "has_mastered_subject",
+            "arguments": [
+              "x",
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": true,
+      "notes": []
+    },
+    {
+      "premise_id": "P9",
+      "kind": "RULE",
+      "cnl": "If Tuấn's friends do not understand a subject, Tuấn has not mastered it.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "friends_do_not_understand_subject",
+            "arguments": [
+              "tuan",
+              "x"
+            ],
+            "negated": true
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "has_not_mastered_subject",
+            "arguments": [
+              "tuan",
+              "x"
+            ],
+            "negated": true
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P10",
+      "kind": "RULE",
+      "cnl": "If a student cannot explain a subject, they do not have knowledge of it.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "cannot_explain_subject",
+            "arguments": [
+              "x",
+              "x"
+            ],
+            "negated": true
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "does_not_have_knowledge_of_subject",
+            "arguments": [
+              "x",
+              "x"
+
+[END LLM CALL 1]
+
+================================================================================
+LLM CALL 2 | 2026-05-24T17:00:12 | provider=huggingface | model=Qwen/Qwen3.5-4B
+================================================================================
+[SYSTEM PROMPT]
+/no_think
+
+You are Stage 3-lite of a neurosymbolic logic parser.
+You are a JSON predicate-frame extractor, not a solver.
+
+Your job:
+For each CNL statement, identify only:
+- predicate names
+- predicate arguments
+- negation
+- rule relationship: antecedent vs consequent vs body
+- one main quantified variable when present
+
+Do NOT build recursive AST JSON. Python will build the AST deterministically.
+Do NOT solve the question.
+Do NOT add facts that are not in the premise.
+
+Output rules:
+- Output ONLY valid JSON.
+- First character must be {.
+- Do not write analysis.
+- Do not write explanations.
+- Do not write markdown.
+- Do not include comments.
+- End after the JSON object with <END_JSON>.
+
+Predicate rules:
+1. Predicate names must be lowercase snake_case.
+2. Do not put negation in predicate names. Use "negated": true.
+3. Use variables like x, y for generic quantified entities.
+4. Use constants like john, mary, tuan, quantum_lab for named entities.
+5. Every atom should have at least one argument.
+6. Reuse the same predicate name for the same concept across all premises.
+
+Frame shape:
+{
+  "frames": [
+    {
+      "premise_id": "P1",
+      "kind": "RULE",
+      "cnl": "...",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {"name": "student", "arguments": ["x"], "negated": false}
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {"name": "eligible", "arguments": ["x"], "negated": false}
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    }
+  ]
+}
+
+Use these fields by kind:
+- FACT: put all atoms in body. Use constants for named individuals.
+- EXISTS: put all asserted atoms in body and set variable.
+- FORALL: usually set antecedent to the class restriction and consequent to the asserted property.
+- RULE, ONLY_IF_RULE, NON_IF_RULE: set antecedent and consequent.
+- OBLIGATION_RULE: set antecedent for the situation and consequent for the obligated/permitted/forbidden predicate.
+  Use prefixes obligated_, permitted_, or forbidden_ on the consequent predicate name.
+- IFF: set antecedent and consequent.
+- META or UNKNOWN: set unsupported true unless the statement is clearly representable as flat atoms.
+
+Examples:
+
+Input:
+P1 [FORALL]: Every student is preparing for an exam.
+Output frame:
+{
+  "premise_id": "P1",
+  "kind": "FORALL",
+  "cnl": "Every student is preparing for an exam.",
+  "variable": "x",
+  "antecedent": {"connective": "and", "atoms": [{"name": "student", "arguments": ["x"], "negated": false}]},
+  "consequent": {"connective": "and", "atoms": [{"name": "preparing_for_exam", "arguments": ["x"], "negated": false}]},
+  "body": null,
+  "unsupported": false,
+  "notes": []
+}
+
+Input:
+P2 [RULE]: If a student does NOT ask questions, then the student does NOT attend tutorials.
+Output frame:
+{
+  "premise_id": "P2",
+  "kind": "RULE",
+  "cnl": "If a student does NOT ask questions, then the student does NOT attend tutorials.",
+  "variable": "x",
+  "antecedent": {"connective": "and", "atoms": [
+    {"name": "student", "arguments": ["x"], "negated": false},
+    {"name": "asks_questions", "arguments": ["x"], "negated": true}
+  ]},
+  "consequent": {"connective": "and", "atoms": [
+    {"name": "attends_tutorials", "arguments": ["x"], "negated": true}
+  ]},
+  "body": null,
+  "unsupported": false,
+  "notes": []
+}
+
+Input:
+P3 [EXISTS]: There exists a student who attends tutorials.
+Output frame:
+{
+  "premise_id": "P3",
+  "kind": "EXISTS",
+  "cnl": "There exists a student who attends tutorials.",
+  "variable": "x",
+  "antecedent": null,
+  "consequent": null,
+  "body": {"connective": "and", "atoms": [
+    {"name": "student", "arguments": ["x"], "negated": false},
+    {"name": "attends_tutorials", "arguments": ["x"], "negated": false}
+  ]},
+  "unsupported": false,
+  "notes": []
+}
+
+Return exactly one JSON object with the key "frames".
+Do not output anything before the JSON.
+Do not output anything after <END_JSON>.
+
+
+[USER PROMPT]
+P1 [UNKNOWN]: If a student is eligible, then they must have taken the required test.
+P2 [RULE]: If a student does not pass the prerequisite, then they won't be allowed to graduate.
+P3 [FORALL]: All students are eligible.
+P4 [RULE]: If a student has taken the required test, then their GPA requirement is met.
+P5 [FORALL]: All students have passed the prerequisite.
+P6 [RULE]: If a student has not taken the required test, then they are not eligible.
+P7 [UNKNOWN]: If a student has taken the test, then they must have passed the prerequisite.
+P8 [RULE]: If a student’s GPA requirement is not met, then they have not taken the test.
+P9 [RULE]: If a student is eligible, then their GPA requirement is met.
+P10 [RULE]: If a student has passed the prerequisite, then they are allowed to graduate.
+P11 [RULE]: If a student is not allowed to graduate, then they have not taken the test.
+P12 [UNKNOWN]: If it's true that 'if a student's GPA is not met then they haven't taken the test', then it must also be true that 'if the student is eligible then they’ve taken the test'.
+P13 [UNKNOWN]: If it's true that 'if a student isn't allowed to graduate then they haven't taken the test', then it must also be true that 'if the student is eligible then they’ve taken the test'.
+P14 [META]: If there is some student who is allowed to graduate, then any student who takes the test will meet the GPA requirement.
+P15 [UNKNOWN]: If passing the prerequisite guarantees graduation, then there must exist at least one student who is allowed to graduate.
+P16 [RULE]: If eligibility guarantees test-taking, then not passing the prerequisite guarantees not graduating.
+P17 [RULE]: If a student meets the GPA requirement, then they are allowed to graduate.
+P18 [RULE]: If a student does not meet the GPA requirement, then they are not recommended.
+P19 [RULE]: If a student is not eligible, then they do not meet the GPA requirement.
+P20 [RULE]: If a student has not taken the test, then they are not recommended.
+
+[MODEL OUTPUT]
+{
+  "frames": [
+    {
+      "premise_id": "P1",
+      "kind": "UNKNOWN",
+      "cnl": "If a student is eligible, then they must have taken the required test.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "eligible",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "taken_required_test",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": true,
+      "notes": []
+    },
+    {
+      "premise_id": "P2",
+      "kind": "RULE",
+      "cnl": "If a student does not pass the prerequisite, then they won't be allowed to graduate.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "passes_prerequisite",
+            "arguments": [
+              "x"
+            ],
+            "negated": true
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "allowed_to_graduate",
+            "arguments": [
+              "x"
+            ],
+            "negated": true
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P3",
+      "kind": "FORALL",
+      "cnl": "All students are eligible.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "student",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "eligible",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P4",
+      "kind": "RULE",
+      "cnl": "If a student has taken the required test, then their GPA requirement is met.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "taken_required_test",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "meets_gpa_requirement",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P5",
+      "kind": "FORALL",
+      "cnl": "All students have passed the prerequisite.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "student",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "passes_prerequisite",
+            "arguments": [
+              "x"
+            ],
+            "negated": false
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P6",
+      "kind": "RULE",
+      "cnl": "If a student has not taken the required test, then they are not eligible.",
+      "variable": "x",
+      "antecedent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "taken_required_test",
+            "arguments": [
+              "x"
+            ],
+            "negated": true
+          }
+        ]
+      },
+      "consequent": {
+        "connective": "and",
+        "atoms": [
+          {
+            "name": "eligible",
+            "arguments": [
+              "x"
+            ],
+            "negated": true
+          }
+        ]
+      },
+      "body": null,
+      "unsupported": false,
+      "notes": []
+    },
+    {
+      "premise_id": "P7",
+      "kind": "UNKNOWN",
+      "cnl": "If a student has taken the test, then they must have passed the prerequisite.",
+      "variable": "x",
+      

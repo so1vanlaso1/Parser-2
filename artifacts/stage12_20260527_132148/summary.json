@@ -1,0 +1,45 @@
+{
+  "started_at": "2026-05-27T13:22:47",
+  "input": "fixed_smoke_logic_406.jsonl",
+  "artifacts_dir": "artifacts\\stage12_20260527_132148",
+  "model_config": {
+    "mode": "qwen_hf_4bit",
+    "minicpm_model_id": "openbmb/MiniCPM5-1B",
+    "qwen_model_path": "D:\\Exact logic parser\\models\\Qwen3.5-4B",
+    "max_new_tokens": 512,
+    "temperature": 0.0,
+    "top_p": 0.95,
+    "device_map": "auto",
+    "torch_dtype": "auto"
+  },
+  "row_count": 2,
+  "rows": [
+    {
+      "row_number": 1,
+      "id": "logic-0226-q1",
+      "premise_count": 7,
+      "skeleton_count": 7,
+      "request_count": 14,
+      "result_count": 14,
+      "needs_review_count": 2,
+      "duration_seconds": 574.622
+    },
+    {
+      "row_number": 2,
+      "id": "logic-0359-q1",
+      "premise_count": 10,
+      "skeleton_count": 10,
+      "request_count": 18,
+      "result_count": 18,
+      "needs_review_count": 0,
+      "duration_seconds": 744.099
+    }
+  ],
+  "finished_at": "2026-05-27T13:44:46",
+  "llm_call_count": 32,
+  "outputs": {
+    "results_jsonl": "artifacts\\stage12_20260527_132148\\results.jsonl",
+    "summary_json": "artifacts\\stage12_20260527_132148\\summary.json",
+    "llm_io_jsonl": "artifacts\\stage12_20260527_132148\\llm_io.jsonl"
+  }
+}

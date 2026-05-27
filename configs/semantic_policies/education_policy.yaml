@@ -1,0 +1,12 @@
+{
+  "logical_cue_words": {
+    "and": ["and"],
+    "or": ["or"],
+    "negation": ["not", "no", "never", "cannot", "without"]
+  },
+  "allowed_dynamic_predicates": false,
+  "require_evidence_links": true,
+  "require_domain_restrictions": true,
+  "disjunction_requires_or_or_group": true,
+  "numeric_arguments_must_be_strings": true
+}

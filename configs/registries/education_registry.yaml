@@ -1,0 +1,109 @@
+{
+  "predicates": {
+    "student": {
+      "arity": 1,
+      "roles": ["person"],
+      "solver_safe": true
+    },
+    "subject": {
+      "arity": 1,
+      "roles": ["subject"],
+      "solver_safe": true
+    },
+    "ask_questions": {
+      "arity": 1,
+      "roles": ["person"],
+      "solver_safe": true
+    },
+    "attending_tutorials": {
+      "arity": 1,
+      "roles": ["person"],
+      "solver_safe": true
+    },
+    "preparing_for_exam": {
+      "arity": 1,
+      "roles": ["person"],
+      "solver_safe": true
+    },
+    "understand_material": {
+      "arity": 1,
+      "roles": ["person"],
+      "solver_safe": true
+    },
+    "understand_subject": {
+      "arity": 2,
+      "roles": ["person", "subject"],
+      "solver_safe": true
+    },
+    "contains_knowledge": {
+      "arity": 1,
+      "roles": ["subject"],
+      "solver_safe": true
+    },
+    "has_knowledge_of_subject": {
+      "arity": 2,
+      "roles": ["person", "subject"],
+      "solver_safe": true
+    },
+    "explain_subject": {
+      "arity": 2,
+      "roles": ["person", "subject"],
+      "solver_safe": true
+    },
+    "friends_understand_subject": {
+      "arity": 2,
+      "roles": ["person", "subject"],
+      "solver_safe": true
+    },
+    "mastered_subject": {
+      "arity": 2,
+      "roles": ["person", "subject"],
+      "solver_safe": true
+    },
+    "earned_grade": {
+      "arity": 2,
+      "roles": ["person", "grade"],
+      "solver_safe": true
+    },
+    "earned_grade_in_subject": {
+      "arity": 3,
+      "roles": ["person", "grade", "subject"],
+      "solver_safe": true
+    },
+    "grade_count": {
+      "arity": 3,
+      "roles": ["person", "grade", "count"],
+      "solver_safe": false,
+      "requires_lowering": true
+    },
+    "grade_count_at_least": {
+      "arity": 3,
+      "roles": ["person", "grade_group", "count"],
+      "solver_safe": false,
+      "requires_lowering": true
+    },
+    "receive_scholarship": {
+      "arity": 1,
+      "roles": ["person"],
+      "solver_safe": true
+    },
+    "scholarship": {
+      "arity": 1,
+      "roles": ["person"],
+      "solver_safe": true
+    }
+  },
+  "__argument_values__": {
+    "a_or_a_plus": {
+      "role": "grade_group",
+      "encodes_disjunction": true,
+      "members": ["a", "a_plus"]
+    }
+  },
+  "__incompatible_role_sets__": [
+    ["person", "subject"],
+    ["person", "grade"],
+    ["subject", "grade"],
+    ["count", "person"]
+  ]
+}

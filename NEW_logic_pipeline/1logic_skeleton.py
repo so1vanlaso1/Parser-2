@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -45,31 +45,10 @@ class TextSpan(BaseModel):
 
 
 class FormulaSkeleton(BaseModel):
-    """A shallow formula skeleton only.
-
-    This is not a solver AST and it does not contain predicates. It only stores
-    formula-level shape when the premise itself talks about formulas or nested
-    conditions.
-    """
-
     type: FormulaNodeType
     text: str | None = None
     variable: str | None = None
     children: list["FormulaSkeleton"] = Field(default_factory=list)
-
-
-class MatchedEvidence(BaseModel):
-    """Debug evidence explaining why the router chose a skeleton kind."""
-
-    rule_id: str
-    cue: str | None = None
-    span: str | None = None
-    start: int | None = None
-    end: int | None = None
-    confidence: float | None = None
-    direction: str | None = None
-    consequent_negation: bool | None = None
-    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class LogicSkeleton(BaseModel):
@@ -88,11 +67,6 @@ class LogicSkeleton(BaseModel):
     confidence: float = 1.0
     needs_review: bool = False
     notes: list[str] = Field(default_factory=list)
-
-    # Stage-1/2 debug metadata. These fields are intentionally generic and do
-    # not create predicates, AST nodes, or solver output.
-    matched_rule: str | None = None
-    matched_evidence: MatchedEvidence | None = None
 
 
 class SkeletonBuildResult(BaseModel):

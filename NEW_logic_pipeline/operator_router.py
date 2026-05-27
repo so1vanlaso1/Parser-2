@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 try:
+    from .connector_registry import DEFAULT_REGISTRY, ConnectorMatch
     from .logic_skeleton import SkeletonKind
 except ImportError:  # pragma: no cover - supports direct script execution.
+    from connector_registry import DEFAULT_REGISTRY, ConnectorMatch
     from logic_skeleton import SkeletonKind
 
 
@@ -16,23 +19,8 @@ class OperatorMatch:
     risk_flags: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     matched_rule: str | None = None
+    matched_evidence: dict[str, Any] | None = None
 
-
-IFF_CUES = (
-    "if and only if",
-    "iff",
-    "exactly when",
-    "precisely when",
-)
-
-ONLY_IF_CUES = (
-    "only if",
-    "only when",
-    "depends on",
-    "is required for",
-    "is necessary for",
-    "requires",
-)
 
 EXISTS_START_RE = re.compile(
     r"^(some|at\s+least\s+one|there\s+exists|there\s+is|one\s+or\s+more|"
@@ -40,235 +28,194 @@ EXISTS_START_RE = re.compile(
     re.IGNORECASE,
 )
 
-FORALL_START_RE = re.compile(r"^(all|every|each|any|everyone)\b", re.IGNORECASE)
+FORALL_START_RE = re.compile(r"^(all|every|each|any|everyone|everybody)\b", re.IGNORECASE)
 
 IF_RULE_START_RE = re.compile(
     r"^(if|when|whenever|provided\s+that|assuming\s+that|in\s+case)\b",
     re.IGNORECASE,
 )
 
-NON_IF_CONNECTORS = (
-    "causes revocation of",
-    "causes removal of",
-    "disqualifies from",
-    "causes loss of",
-    "results in",
-    "leads to",
-    "guarantees",
-    "prevents",
-    "ensures",
-    "enables",
-    "allows",
-    "blocks",
-    "causes",
-    "grants",
-)
-
-OBLIGATION_CUES = (
-    "not allowed to",
-    "required to",
-    "obligated to",
-    "prohibited",
-    "forbidden",
-    "mandatory",
-    "permitted",
-    "allowed to",
-    "have to",
-    "must",
-    "shall",
-)
-
-MODAL_CUES = (
-    "not necessarily",
-    "can sometimes",
-    "possibly",
-    "probably",
-    "likely",
-    "might",
-    "could",
-    "may",
-)
-
-FACT_VERB_RE = re.compile(
-    r"\b(is|are|was|were|has|have|had|does|do|did|achieves?|receives?|gets?|"
-    r"contains?|includes?|belongs?|owns?|knows?)\b",
+# This list is grammatical, not domain-specific: it lets the relative-clause
+# splitter find the main predicate boundary for sentences like
+# "A student who practices daily succeeds".
+VERB_BOUNDARY_RE = re.compile(
+    r"\b(is|are|was|were|be|being|been|has|have|had|do|does|did|can|could|may|might|"
+    r"must|shall|should|will|would|receive|receives|get|gets|contain|contains|include|"
+    r"includes|require|requires|need|needs|achieve|achieves|submit|submits|pass|passes|"
+    r"graduate|graduates|complete|completes|attend|attends|ask|asks|provide|provides|"
+    r"give|gives|lose|loses|gain|gains|enter|enters|obtain|obtains|qualify|qualifies|"
+    r"allow|allows|enable|enables|lead|leads|cause|causes|succeed|succeeds|practice|"
+    r"practices)\b",
     re.IGNORECASE,
 )
+
+COPULAR_OR_HAVE_RE = re.compile(r"\b(is|are|was|were|has|have|had)\b", re.IGNORECASE)
+PAST_TENSE_OR_EVENT_RE = re.compile(
+    r"\b([A-Za-z]+ed|sent|paid|won|lost|made|gave|took|went|came|met|ran|ate|read|wrote|saw|left|kept)\b",
+    re.IGNORECASE,
+)
+
+GENERIC_NOUN_HINTS = {
+    "student", "students", "person", "people", "individual", "individuals", "feedback",
+    "revision", "policy", "rule", "approach", "approaches", "strategy", "strategies",
+    "approval", "lack", "training", "practice", "research", "recognition",
+}
 
 
 def classify_operator(text: str) -> OperatorMatch:
     normalized = _normalize_for_match(text)
 
     if not normalized:
-        return OperatorMatch(
-            kind="UNKNOWN",
-            confidence=0.0,
-            risk_flags=["empty_premise", "needs_review"],
+        return _match(
+            "UNKNOWN",
+            0.0,
+            rule="empty",
+            flags=["empty_premise", "needs_review"],
             notes=["empty premise"],
-            matched_rule="empty",
         )
 
     if _looks_structurally_invalid(normalized):
-        return OperatorMatch(
-            kind="UNKNOWN",
-            confidence=0.25,
-            risk_flags=["needs_review"],
+        return _match(
+            "UNKNOWN",
+            0.25,
+            rule="structural_invalid",
+            flags=["needs_review"],
             notes=["contains unsupported structural marker"],
-            matched_rule="structural_invalid",
+            evidence={"rule_id": "structural_invalid", "details": {"reason": "unbalanced marker or parentheses"}},
         )
 
-    if is_meta_like(normalized):
-        return OperatorMatch(
-            kind="META",
-            confidence=0.88,
-            risk_flags=["meta_formula"],
+    meta_match = is_meta_like(normalized, return_match=True)
+    if meta_match:
+        evidence = _evidence(meta_match) if isinstance(meta_match, ConnectorMatch) else meta_match
+        return _match(
+            "META",
+            float(evidence.get("confidence", 0.88)),
+            rule=str(evidence.get("rule_id", "meta")),
+            flags=["meta_formula"],
             notes=["nested or formula-level logic cue detected"],
-            matched_rule="meta",
+            evidence=evidence,
         )
 
-    if _contains_any(normalized, IFF_CUES):
-        return OperatorMatch(
-            kind="IFF",
-            confidence=0.95,
-            matched_rule="iff",
-        )
+    iff = DEFAULT_REGISTRY.find("IFF", normalized)
+    if iff:
+        return _from_connector("IFF", iff)
 
-    only_if_rule = _match_only_if(normalized)
-    if only_if_rule:
-        return OperatorMatch(
-            kind="ONLY_IF_RULE",
-            confidence=0.92,
-            risk_flags=["only_if_direction"],
-            matched_rule=only_if_rule,
-        )
+    only_if = DEFAULT_REGISTRY.find("ONLY_IF_RULE", normalized)
+    if only_if:
+        return _from_connector("ONLY_IF_RULE", only_if)
+
+    # Modal uncertainty must be checked before generic RULE/FORALL. Otherwise
+    # "A student who passes is not necessarily ready" looks like a relative rule.
+    modal = DEFAULT_REGISTRY.find("MODAL", normalized)
+    if modal:
+        return _from_connector("MODAL", modal)
 
     if _is_existential(normalized):
-        return OperatorMatch(
-            kind="EXISTS",
-            confidence=0.9,
-            matched_rule="existential",
+        return _match(
+            "EXISTS",
+            0.90,
+            rule="quantifier.existential_start",
+            evidence=_simple_evidence("quantifier.existential_start", normalized, 0, _first_word_end(normalized), 0.90),
         )
 
     if _is_universal(normalized):
-        return OperatorMatch(
-            kind="FORALL",
-            confidence=0.88,
-            matched_rule="universal",
+        return _match(
+            "FORALL",
+            0.88,
+            rule="quantifier.universal_start",
+            evidence=_simple_evidence("quantifier.universal_start", normalized, 0, _first_word_end(normalized), 0.88),
         )
 
     if _is_rule(normalized):
-        return OperatorMatch(
-            kind="RULE",
-            confidence=0.86,
-            matched_rule="conditional_or_relative_rule",
+        evidence = _rule_evidence(normalized)
+        return _match(
+            "RULE",
+            0.86,
+            rule=str(evidence.get("rule_id", "conditional_or_relative_rule")),
+            evidence=evidence,
         )
 
-    non_if = _match_non_if_connector(normalized)
+    non_if = DEFAULT_REGISTRY.find("NON_IF_RULE", normalized)
     if non_if:
-        return OperatorMatch(
-            kind="NON_IF_RULE",
-            confidence=0.84,
-            risk_flags=["non_if_rule"],
-            matched_rule=non_if,
-        )
+        return _from_connector("NON_IF_RULE", non_if)
 
-    obligation = _match_obligation(normalized)
+    obligation = DEFAULT_REGISTRY.find("OBLIGATION_RULE", normalized)
     if obligation:
-        return OperatorMatch(
-            kind="OBLIGATION_RULE",
-            confidence=0.82,
-            risk_flags=[_deontic_flag(normalized)],
-            matched_rule=obligation,
+        return _from_connector("OBLIGATION_RULE", obligation, flags=[_deontic_flag(normalized, obligation.cue)])
+
+    fact_evidence = _fact_evidence(normalized)
+    if fact_evidence:
+        return _match(
+            "FACT",
+            float(fact_evidence.get("confidence", 0.76)),
+            rule=str(fact_evidence.get("rule_id", "fact.named_or_specific_assertion")),
+            evidence=fact_evidence,
         )
 
-    modal = _match_modal(normalized)
-    if modal:
-        flags = ["modal_uncertainty"]
-        if "not necessarily" in normalized.lower():
-            flags.insert(0, "modal_not_necessarily")
-        if modal == "may":
-            flags.append("modal_may_ambiguous")
-        return OperatorMatch(
-            kind="MODAL",
-            confidence=0.78,
-            risk_flags=flags,
-            notes=["modal cue is not classical negation"],
-            matched_rule=modal,
-        )
-
-    if _is_safe_fact(normalized):
-        return OperatorMatch(
-            kind="FACT",
-            confidence=0.74,
-            matched_rule="simple_assertion",
-        )
-
-    return OperatorMatch(
-        kind="UNKNOWN",
-        confidence=0.35,
-        risk_flags=["needs_review"],
+    return _match(
+        "UNKNOWN",
+        0.35,
+        rule="unknown.no_safe_match",
+        flags=["needs_review"],
         notes=["no safe logical operator cue matched"],
-        matched_rule="unknown",
+        evidence={"rule_id": "unknown.no_safe_match", "details": {"reason": "no registry connector or safe assertion pattern matched"}},
     )
 
 
-def is_meta_like(text: str) -> bool:
+def is_meta_like(text: str, *, return_match: bool = False) -> bool | ConnectorMatch | dict[str, Any]:
     normalized = _normalize_for_match(text)
     lower = normalized.lower()
 
-    if any(re.search(rf"\b{re.escape(cue)}\b", lower) for cue in IFF_CUES):
+    # Direct IFF is its own operator, not META.
+    if DEFAULT_REGISTRY.find("IFF", normalized):
         return False
 
     if re.search(r"\bit\s+is\s+not\s+true\s+that\s+if\b", lower):
-        return True
+        evidence = _simple_evidence("meta.negated_if_statement", normalized, 0, min(len(normalized), 32), 0.88)
+        return evidence if return_match else True
 
-    if re.search(
-        r"\b(the\s+)?(rule|claim|statement)\s+that\b|"
-        r"\bthe\s+previous\s+statement\b|"
-        r"\bthe\s+above\s+implication\b|"
-        r"\bholds\s+true\b",
-        lower,
-    ):
-        return True
+    meta_cue = DEFAULT_REGISTRY.find("META_CUE", normalized)
+    formula_cue = DEFAULT_REGISTRY.find("FORMULA_CONNECTOR", normalized)
+
+    # Quoted rules/claims are formula-level statements.
+    if "'" in normalized and meta_cue:
+        evidence = _evidence(meta_cue)
+        evidence["rule_id"] = "meta.quoted_formula_statement"
+        evidence["details"]["quoted"] = True
+        return evidence if return_match else True
+
+    # Explicit reference to another statement/implication is formula-level even
+    # without an extra connector.
+    if meta_cue and meta_cue.cue in {"previous statement", "above implication", "holds true"}:
+        evidence = _evidence(meta_cue)
+        evidence["rule_id"] = "meta.explicit_statement_reference"
+        return evidence if return_match else True
+
+    # Policy/compliance/rule language + a formula connector is formula-level.
+    if meta_cue and formula_cue:
+        evidence = _evidence(meta_cue)
+        evidence["rule_id"] = "meta.cue_plus_formula_connector"
+        evidence["details"]["formula_connector"] = formula_cue.entry.id
+        return evidence if return_match else True
 
     if re.search(r"\bthen\s+if\b", lower):
-        return True
+        evidence = _simple_evidence("meta.then_if_nested", normalized, lower.find("then if"), lower.find("then if") + 7, 0.88)
+        return evidence if return_match else True
 
     if len(re.findall(r"\bif\b", lower)) >= 2:
-        return True
+        evidence = _simple_evidence("meta.multiple_if_cues", normalized, 0, len(normalized), 0.86)
+        return evidence if return_match else True
 
     if lower.startswith("if "):
         parts = re.split(r"\bthen\b", lower, maxsplit=1)
         if len(parts) == 2:
-            antecedent = parts[0]
-            consequent = parts[1]
-            formula_connectors = (
-                " implies ",
-                " leads to ",
-                " requires ",
-                " depends on ",
-                " results in ",
-                " causes ",
-                " grants ",
-                " allows ",
-                " enables ",
-                " ensures ",
-                " guarantees ",
-                " prevents ",
-                " blocks ",
-                " disqualifies from ",
-            )
-            if any(connector in antecedent for connector in formula_connectors):
-                return True
-            if consequent.strip().startswith("if "):
-                return True
-
-    if re.search(
-        r"^if\s+(there\s+exists|there\s+is|at\s+least\s+one|some|all|every)\b"
-        r".+\bthen\s+if\b",
-        lower,
-    ):
-        return True
+            antecedent = parts[0].removeprefix("if ").strip(" ,")
+            consequent = parts[1].strip(" ,")
+            if _fragment_is_formula_like(antecedent) or _fragment_is_formula_like(consequent):
+                evidence = _simple_evidence("meta.if_contains_formula_fragment", normalized, 0, len(normalized), 0.88)
+                evidence["details"]["antecedent_formula_like"] = _fragment_is_formula_like(antecedent)
+                evidence["details"]["consequent_formula_like"] = _fragment_is_formula_like(consequent)
+                return evidence if return_match else True
 
     return False
 
@@ -283,19 +230,6 @@ def _looks_structurally_invalid(text: str) -> bool:
     return text.count("(") != text.count(")")
 
 
-def _contains_any(text: str, cues: tuple[str, ...]) -> bool:
-    lower = text.lower()
-    return any(re.search(rf"\b{re.escape(cue)}\b", lower) for cue in cues)
-
-
-def _match_only_if(text: str) -> str | None:
-    lower = text.lower()
-    for cue in ONLY_IF_CUES:
-        if re.search(rf"\b{re.escape(cue)}\b", lower):
-            return cue
-    return None
-
-
 def _is_existential(text: str) -> bool:
     if _has_conditional_cue(text):
         return False
@@ -305,7 +239,7 @@ def _is_existential(text: str) -> bool:
 def _is_universal(text: str) -> bool:
     if not FORALL_START_RE.search(text):
         return False
-    if _match_modal(text) or _match_obligation(text):
+    if DEFAULT_REGISTRY.find("MODAL", text) or DEFAULT_REGISTRY.find("OBLIGATION_RULE", text):
         return False
     if _has_relative_clause_condition(text):
         return False
@@ -315,42 +249,20 @@ def _is_universal(text: str) -> bool:
 
 
 def _is_rule(text: str) -> bool:
+    lower = text.lower()
     if IF_RULE_START_RE.search(text):
         return True
     if re.search(r"\s+if\s+", text, re.IGNORECASE):
-        lower = text.lower()
         if "only if" not in lower and "if and only if" not in lower:
             return True
+    if re.search(r"\b(provided\s+that|assuming\s+that|in\s+case)\b", lower):
+        return True
     return _has_relative_clause_condition(text)
-
-
-def _match_non_if_connector(text: str) -> str | None:
-    lower = text.lower()
-    for connector in NON_IF_CONNECTORS:
-        if re.search(rf"\b{re.escape(connector)}\b", lower):
-            return connector
-    return None
-
-
-def _match_obligation(text: str) -> str | None:
-    lower = text.lower()
-    for cue in OBLIGATION_CUES:
-        if re.search(rf"\b{re.escape(cue)}\b", lower):
-            return cue
-    return None
-
-
-def _match_modal(text: str) -> str | None:
-    lower = text.lower()
-    for cue in MODAL_CUES:
-        if re.search(rf"\b{re.escape(cue)}\b", lower):
-            return cue
-    return None
 
 
 def _has_conditional_cue(text: str) -> bool:
     lower = text.lower()
-    if lower.startswith(("if ", "when ", "whenever ")):
+    if lower.startswith(("if ", "when ", "whenever ", "provided that ", "assuming that ", "in case ")):
         return True
     return bool(re.search(r"\b(provided\s+that|assuming\s+that|in\s+case)\b", lower))
 
@@ -368,34 +280,160 @@ def _has_relative_clause_condition(text: str) -> bool:
     )
 
 
-def _deontic_flag(text: str) -> str:
+def _fragment_is_formula_like(fragment: str) -> bool:
+    lower = fragment.lower().strip()
+    if lower.startswith(("if ", "when ", "whenever ", "provided that ", "assuming that ", "in case ")):
+        return True
+    if re.match(r"^(all|every|each|any|there\s+exists|there\s+is|at\s+least\s+one|some)\b", lower):
+        return True
+    if DEFAULT_REGISTRY.find("FORMULA_CONNECTOR", fragment):
+        return True
+    if _has_relative_clause_condition(fragment):
+        return True
+    return False
+
+
+def _deontic_flag(text: str, cue: str | None = None) -> str:
     lower = text.lower()
-    if any(cue in lower for cue in ("forbidden", "prohibited", "not allowed to")):
+    cue_lower = (cue or "").lower()
+    if any(term in lower for term in ("forbidden", "prohibited", "not allowed to")) or cue_lower in {"forbidden", "prohibited", "not allowed to"}:
         return "deontic_prohibition"
-    if any(cue in lower for cue in ("permitted", "allowed to")):
+    if any(term in lower for term in ("permitted", "allowed to")) or cue_lower in {"permitted", "allowed to"}:
         return "deontic_permission"
     return "deontic_obligation"
 
 
-def _is_safe_fact(text: str) -> bool:
+def _fact_evidence(text: str) -> dict[str, Any] | None:
     lower = text.lower()
     blocked_starts = (
-        "all ",
-        "every ",
-        "each ",
-        "some ",
-        "at least one ",
-        "there exists ",
-        "there is ",
-        "if ",
-        "when ",
-        "whenever ",
+        "all ", "every ", "each ", "some ", "at least one ", "there exists ", "there is ",
+        "if ", "when ", "whenever ", "provided that ", "assuming that ", "in case ",
+        "lack of ", "failure to ", "positive feedback ", "regular revision ",
     )
     if lower.startswith(blocked_starts):
+        return None
+    if DEFAULT_REGISTRY.find_any(("MODAL", "OBLIGATION_RULE", "NON_IF_RULE", "ONLY_IF_RULE", "IFF"), text):
+        return None
+    if _has_conditional_cue(text) or _has_relative_clause_condition(text):
+        return None
+
+    words = text.rstrip(".!?").split()
+    if len(words) < 2:
+        return None
+
+    # Named/specific event assertion: Laura emailed..., Kelvin submitted..., An returned...
+    # This is generic over past-tense/event morphology; it is not a list of domain verbs.
+    if _looks_like_named_subject(words):
+        verb_idx = _first_event_or_copular_index(words, start=1, max_index=4)
+        if verb_idx is not None:
+            span = words[verb_idx]
+            rule_id = "fact.named_event_or_attribute_assertion"
+            confidence = 0.80 if PAST_TENSE_OR_EVENT_RE.fullmatch(span.strip(",.;:")) else 0.76
+            return _simple_evidence(rule_id, text, text.find(span), text.find(span) + len(span), confidence)
+
+    # Definite specific past event: The committee approved the proposal.
+    # Keep this narrow: only past/event verb, not broad present generic verbs like supports/motivates.
+    if words[0].lower() == "the":
+        verb_idx = _first_event_index(words, start=1, max_index=5)
+        if verb_idx is not None:
+            span = words[verb_idx]
+            return _simple_evidence("fact.definite_specific_event_assertion", text, text.find(span), text.find(span) + len(span), 0.72)
+
+    return None
+
+
+def _looks_like_named_subject(words: list[str]) -> bool:
+    first = words[0].strip(",.;:")
+    if not first or not first[0].isupper():
         return False
-    if _match_modal(text) or _match_obligation(text):
+    if first.lower() in {"all", "every", "each", "some", "there", "if", "when", "whenever", "provided", "assuming", "in"}:
         return False
-    return bool(FACT_VERB_RE.search(text))
+    # Avoid common sentence-initial generic noun phrases like Positive feedback / Regular revision.
+    if len(words) >= 2 and words[1].lower().strip(",.;:") in GENERIC_NOUN_HINTS:
+        return False
+    return True
+
+
+def _first_event_or_copular_index(words: list[str], *, start: int, max_index: int) -> int | None:
+    for idx in range(start, min(len(words), max_index + 1)):
+        word = words[idx].strip(",.;:")
+        if COPULAR_OR_HAVE_RE.fullmatch(word) or PAST_TENSE_OR_EVENT_RE.fullmatch(word):
+            return idx
+    return None
+
+
+def _first_event_index(words: list[str], *, start: int, max_index: int) -> int | None:
+    for idx in range(start, min(len(words), max_index + 1)):
+        word = words[idx].strip(",.;:")
+        if PAST_TENSE_OR_EVENT_RE.fullmatch(word):
+            return idx
+    return None
+
+
+def _rule_evidence(text: str) -> dict[str, Any]:
+    lower = text.lower()
+    for cue in ("if", "when", "whenever", "provided that", "assuming that", "in case"):
+        pos = lower.find(cue)
+        if pos >= 0:
+            return _simple_evidence(f"rule.conditional_cue.{cue.replace(' ', '_')}", text, pos, pos + len(cue), 0.86)
+    rel_match = re.search(r"\b(who|that|which|whose|with|without)\b", lower)
+    if rel_match:
+        return _simple_evidence("rule.relative_clause_condition", text, rel_match.start(), rel_match.end(), 0.84)
+    return {"rule_id": "rule.conditional_or_relative_rule", "confidence": 0.82, "details": {}}
+
+
+def _first_word_end(text: str) -> int:
+    match = re.search(r"\s", text)
+    return match.start() if match else len(text)
+
+
+def _from_connector(kind: SkeletonKind, conn: ConnectorMatch, *, flags: list[str] | None = None) -> OperatorMatch:
+    entry = conn.entry
+    risk_flags = list(flags) if flags is not None else list(entry.risk_flags)
+    return _match(
+        kind,
+        entry.confidence,
+        rule=entry.id,
+        flags=risk_flags,
+        notes=list(entry.notes),
+        evidence=_evidence(conn),
+    )
+
+
+def _match(kind: SkeletonKind, confidence: float, *, rule: str | None = None,
+           flags: list[str] | None = None, notes: list[str] | None = None,
+           evidence: dict[str, Any] | None = None) -> OperatorMatch:
+    return OperatorMatch(
+        kind=kind,
+        confidence=confidence,
+        risk_flags=flags or [],
+        notes=notes or [],
+        matched_rule=rule,
+        matched_evidence=evidence,
+    )
+
+
+def _evidence(conn: ConnectorMatch) -> dict[str, Any]:
+    evidence = conn.evidence()
+    # connector_registry returns a plain dict with nested details.
+    evidence.setdefault("details", {})
+    return evidence
+
+
+def _simple_evidence(rule_id: str, text: str, start: int, end: int, confidence: float) -> dict[str, Any]:
+    start = max(0, start)
+    end = min(len(text), max(start, end))
+    return {
+        "rule_id": rule_id,
+        "cue": text[start:end] or None,
+        "span": text[start:end] or None,
+        "start": start,
+        "end": end,
+        "confidence": confidence,
+        "direction": None,
+        "consequent_negation": None,
+        "details": {},
+    }
 
 
 def needs_review_notes(note: str) -> list[str]:

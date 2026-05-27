@@ -1,27 +1,105 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
 try:
-    from .connector_registry import DEFAULT_REGISTRY
-    from .logic_skeleton import FormulaSkeleton, LogicSkeleton, MatchedEvidence, TextSpan
-    from .operator_router import OperatorMatch, classify_operator
+    from .logic_skeleton import FormulaSkeleton, LogicSkeleton, SkeletonKind, TextSpan
+    from .operator_router import OperatorMatch, classify_operator, is_meta_like
 except ImportError:  # pragma: no cover - supports direct script execution.
-    from connector_registry import DEFAULT_REGISTRY
-    from logic_skeleton import FormulaSkeleton, LogicSkeleton, MatchedEvidence, TextSpan
-    from operator_router import OperatorMatch, classify_operator
+    from logic_skeleton import FormulaSkeleton, LogicSkeleton, SkeletonKind, TextSpan
+    from operator_router import OperatorMatch, classify_operator, is_meta_like
 
+
+IF_STARTERS = (
+    "if",
+    "when",
+    "whenever",
+    "provided that",
+    "assuming that",
+    "in case",
+)
+
+NON_IF_CONNECTORS = (
+    "causes revocation of",
+    "causes removal of",
+    "disqualifies from",
+    "causes loss of",
+    "results in",
+    "leads to",
+    "guarantees",
+    "prevents",
+    "ensures",
+    "enables",
+    "allows",
+    "blocks",
+    "causes",
+    "grants",
+)
+
+NEGATIVE_CONNECTORS = {"prevents", "blocks", "disqualifies from"}
 
 VERB_BOUNDARIES = (
-    "is", "are", "was", "were", "be", "being", "been", "has", "have", "had", "do", "does", "did",
-    "can", "could", "may", "might", "must", "shall", "should", "will", "would",
-    "receive", "receives", "get", "gets", "contain", "contains", "include", "includes", "require", "requires",
-    "need", "needs", "achieve", "achieves", "submit", "submits", "pass", "passes", "graduate", "graduates",
-    "complete", "completes", "attend", "attends", "ask", "asks", "provide", "provides", "give", "gives",
-    "lose", "loses", "gain", "gains", "enter", "enters", "obtain", "obtains", "qualify", "qualifies",
-    "allow", "allows", "enable", "enables", "lead", "leads", "cause", "causes", "succeed", "succeeds",
-    "practice", "practices", "access", "accesses", "return", "returns", "email", "emails",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "being",
+    "been",
+    "has",
+    "have",
+    "had",
+    "do",
+    "does",
+    "did",
+    "receive",
+    "receives",
+    "get",
+    "gets",
+    "contain",
+    "contains",
+    "include",
+    "includes",
+    "require",
+    "requires",
+    "need",
+    "needs",
+    "achieve",
+    "achieves",
+    "submit",
+    "submits",
+    "pass",
+    "passes",
+    "graduate",
+    "graduates",
+    "complete",
+    "completes",
+    "attend",
+    "attends",
+    "ask",
+    "asks",
+    "provide",
+    "provides",
+    "give",
+    "gives",
+    "lose",
+    "loses",
+    "gain",
+    "gains",
+    "enter",
+    "enters",
+    "obtain",
+    "obtains",
+    "qualify",
+    "qualifies",
+    "allow",
+    "allows",
+    "enable",
+    "enables",
+    "lead",
+    "leads",
+    "cause",
+    "causes",
 )
 
 IRREGULAR_PLURALS = {
@@ -38,7 +116,12 @@ def build_skeleton(premise_id: str, text: str) -> LogicSkeleton:
     match = classify_operator(original)
 
     if match.kind == "FACT":
-        return _base_skeleton(premise_id, original, match, body=_span("body", clean))
+        return _base_skeleton(
+            premise_id,
+            original,
+            match,
+            body=_span("body", clean),
+        )
 
     if match.kind == "EXISTS":
         body = _strip_exists_cue(clean)
@@ -131,9 +214,9 @@ def build_skeleton(premise_id: str, text: str) -> LogicSkeleton:
                 "non_if_split_failed",
                 "classified as NON_IF_RULE but no safe split was found",
             )
-        antecedent, consequent, evidence = parts
+        antecedent, consequent, connector = parts
         consequent_span = _span("consequent", consequent)
-        if evidence.entry.consequent_negation:
+        if connector in NEGATIVE_CONNECTORS:
             consequent_span.negation_hint = True
         return _base_skeleton(
             premise_id,
@@ -170,7 +253,7 @@ def build_skeleton(premise_id: str, text: str) -> LogicSkeleton:
                 original,
                 match,
                 formula_tree=formula_tree,
-                needs_review=True,
+                needs_review=False,
             )
         except Exception as exc:  # pragma: no cover - defensive fallback.
             skeleton = _base_skeleton(
@@ -205,6 +288,29 @@ def strip_terminal_punctuation(text: str) -> str:
     return normalize_whitespace(text).rstrip(" \t\r\n.!?")
 
 
+def singularize_subject(subject: str) -> str:
+    cleaned = normalize_whitespace(subject)
+    cleaned = re.sub(r"^(all|every|each|any|some|at\s+least\s+one)\s+", "", cleaned, flags=re.I)
+    cleaned = re.sub(r"^(a|an|the)\s+", "", cleaned, flags=re.I)
+    if not cleaned:
+        return cleaned
+
+    words = cleaned.split()
+    last = words[-1]
+    lower_last = last.lower()
+
+    if lower_last in IRREGULAR_PLURALS:
+        words[-1] = _preserve_case(last, IRREGULAR_PLURALS[lower_last])
+    elif lower_last.endswith("ies") and len(lower_last) > 3:
+        words[-1] = last[:-3] + "y"
+    elif lower_last.endswith(("sses", "ches", "shes", "xes", "zes")):
+        words[-1] = last[:-2]
+    elif lower_last.endswith("s") and not lower_last.endswith("ss"):
+        words[-1] = last[:-1]
+
+    return " ".join(words)
+
+
 def split_if_then(text: str) -> tuple[str, str] | None:
     clean = strip_terminal_punctuation(text)
     match = re.match(r"^if\s+(.+?)\s*,?\s*then\s+(.+)$", clean, flags=re.I)
@@ -230,18 +336,6 @@ def split_a_if_b(text: str) -> tuple[str, str] | None:
     if not match:
         return None
     return _clean_part(match.group(2)), _clean_part(match.group(1))
-
-
-def split_a_condition_connector_b(text: str) -> tuple[str, str] | None:
-    clean = strip_terminal_punctuation(text)
-    if re.match(r"^(provided\s+that|assuming\s+that|in\s+case)\b", clean, flags=re.I):
-        return None
-    match = re.match(r"^(.+?)\s+(provided\s+that|assuming\s+that|in\s+case)\s+(.+)$", clean, flags=re.I)
-    if not match:
-        return None
-    consequent = _clean_part(match.group(1))
-    antecedent = _clean_part(match.group(3))
-    return antecedent, consequent
 
 
 def split_only_if(text: str) -> tuple[str, str] | None:
@@ -280,8 +374,16 @@ def split_iff(text: str) -> tuple[str, str] | None:
     return None
 
 
-def split_non_if_connector(text: str):
-    return DEFAULT_REGISTRY.split_non_if(text)
+def split_non_if_connector(text: str) -> tuple[str, str, str] | None:
+    clean = strip_terminal_punctuation(text)
+    for connector in NON_IF_CONNECTORS:
+        match = re.match(rf"^(.+?)\s+{re.escape(connector)}\s+(.+)$", clean, flags=re.I)
+        if match:
+            consequent = _clean_part(match.group(2))
+            if connector in {"causes loss of", "causes revocation of", "causes removal of"}:
+                consequent = f"{connector.removeprefix('causes ')} {consequent}"
+            return _clean_part(match.group(1)), consequent, connector
+    return None
 
 
 def detect_negation_hint(text: str) -> bool:
@@ -289,16 +391,19 @@ def detect_negation_hint(text: str) -> bool:
     return bool(
         re.search(
             r"\b(no|not|never|without|cannot|can't|does\s+not|do\s+not|did\s+not|"
-            r"fails?\s+to|failure\s+to|lack\s+of|lacks?)\b",
+            r"fails?\s+to|lack\s+of|lacks?)\b",
             lower,
         )
     )
 
 
 def detect_modality_hint(text: str) -> str | None:
-    match = DEFAULT_REGISTRY.find("MODAL", text)
-    if match:
-        return match.cue.replace(" ", "_")
+    lower = normalize_whitespace(text).lower()
+    if "not necessarily" in lower:
+        return "not_necessarily"
+    for cue in ("possibly", "probably", "likely", "might", "may", "could", "can sometimes"):
+        if re.search(rf"\b{re.escape(cue)}\b", lower):
+            return cue.replace(" ", "_")
     return None
 
 
@@ -307,24 +412,20 @@ def build_meta_formula_tree(text: str) -> FormulaSkeleton:
 
     negated_if = re.match(r"^it\s+is\s+not\s+true\s+that\s+(.+)$", clean, flags=re.I)
     if negated_if:
-        return FormulaSkeleton(type="not", children=[parse_formula_part(negated_if.group(1), "x")])
+        return FormulaSkeleton(
+            type="not",
+            children=[parse_formula_part(negated_if.group(1), "x")],
+        )
 
     parts = split_if_then(clean) or split_if_comma(clean)
     if parts:
         antecedent, consequent = parts
         return FormulaSkeleton(
             type="implies",
-            text=clean,
-            children=[parse_formula_part(antecedent, "x"), parse_formula_part(consequent, "y")],
-        )
-
-    connector_parts = _split_formula_connector(clean)
-    if connector_parts:
-        antecedent, consequent = connector_parts
-        return FormulaSkeleton(
-            type="implies",
-            text=clean,
-            children=[parse_formula_part(antecedent, "x"), parse_formula_part(consequent, "y")],
+            children=[
+                parse_formula_part(antecedent, "x"),
+                parse_formula_part(consequent, "y"),
+            ],
         )
 
     return parse_formula_part(clean, "x")
@@ -333,41 +434,56 @@ def build_meta_formula_tree(text: str) -> FormulaSkeleton:
 def parse_formula_part(text: str, variable: str) -> FormulaSkeleton:
     clean = strip_terminal_punctuation(text)
 
-    parts = split_if_then(clean) or split_if_comma(clean) or split_a_condition_connector_b(clean)
+    parts = split_if_then(clean) or split_if_comma(clean)
     if parts:
         antecedent, consequent = parts
-        return _quantified_implies(variable, parse_formula_part(antecedent, variable), parse_formula_part(consequent, variable))
+        return _quantified_implies(
+            variable,
+            parse_formula_part(antecedent, variable),
+            parse_formula_part(consequent, variable),
+        )
 
     connector_parts = _split_formula_connector(clean)
     if connector_parts:
         antecedent, consequent = connector_parts
-        return _quantified_implies(variable, _leaf(antecedent, variable), _leaf(consequent, variable))
+        return _quantified_implies(
+            variable,
+            _leaf(antecedent, variable),
+            _leaf(consequent, variable),
+        )
 
     if _starts_existential(clean):
-        return FormulaSkeleton(type="exists", variable=variable, text=clean, children=[_leaf(_strip_exists_cue(clean), variable)])
+        return FormulaSkeleton(
+            type="exists",
+            variable=variable,
+            children=[_leaf(_strip_exists_cue(clean), variable)],
+        )
 
     if _starts_universal(clean):
         antecedent, consequent = split_universal(clean)
-        return _quantified_implies(variable, _leaf(antecedent, variable), _leaf(consequent, variable))
+        return _quantified_implies(
+            variable,
+            _leaf(antecedent, variable),
+            _leaf(consequent, variable),
+        )
 
     relative_parts = split_relative_clause_rule(clean)
     if relative_parts:
         antecedent, consequent = relative_parts
-        return _quantified_implies(variable, _leaf(antecedent, variable), _leaf(consequent, variable))
+        return _quantified_implies(
+            variable,
+            _leaf(antecedent, variable),
+            _leaf(consequent, variable),
+        )
 
     return _leaf(clean, variable)
 
 
 def split_universal(text: str) -> tuple[str, str]:
     clean = strip_terminal_punctuation(text)
-
-    everyone = re.match(r"^(everyone|everybody)\s+(is|are|was|were|has|have|does|do)\s+(.+)$", clean, flags=re.I)
-    if everyone:
-        return _clean_part(everyone.group(1)), _clean_part(f"{everyone.group(2)} {everyone.group(3)}")
-
-    rest = re.sub(r"^(all|every|each|any)\s+", "", clean, count=1, flags=re.I)
+    rest = re.sub(r"^(all|every|each|any|everyone)\s+", "", clean, count=1, flags=re.I)
     subject, predicate = _split_subject_predicate(rest)
-    return _clean_part(subject), _clean_part(predicate)
+    return _indefinite_subject(subject), _clean_part(predicate)
 
 
 def split_relative_clause_rule(text: str) -> tuple[str, str] | None:
@@ -404,31 +520,14 @@ def split_relative_clause_rule(text: str) -> tuple[str, str] | None:
     return None
 
 
-def singularize_subject(subject: str) -> str:
-    cleaned = normalize_whitespace(subject)
-    cleaned = re.sub(r"^(all|every|each|any|some|at\s+least\s+one)\s+", "", cleaned, flags=re.I)
-    cleaned = re.sub(r"^(a|an|the)\s+", "", cleaned, flags=re.I)
-    if not cleaned:
-        return cleaned
-
-    words = cleaned.split()
-    last = words[-1]
-    lower_last = last.lower()
-
-    if lower_last in IRREGULAR_PLURALS:
-        words[-1] = _preserve_case(last, IRREGULAR_PLURALS[lower_last])
-    elif lower_last.endswith("ies") and len(lower_last) > 3:
-        words[-1] = last[:-3] + "y"
-    elif lower_last.endswith(("sses", "ches", "shes", "xes", "zes")):
-        words[-1] = last[:-2]
-    elif lower_last.endswith("s") and not lower_last.endswith("ss"):
-        words[-1] = last[:-1]
-
-    return " ".join(words)
-
-
 def _split_rule(text: str) -> tuple[str, str] | None:
-    for splitter in (split_if_then, split_if_comma, _split_when_rule, split_a_condition_connector_b, split_a_if_b, split_relative_clause_rule):
+    for splitter in (
+        split_if_then,
+        split_if_comma,
+        _split_when_rule,
+        split_a_if_b,
+        split_relative_clause_rule,
+    ):
         parts = splitter(text)
         if parts:
             return parts
@@ -437,23 +536,34 @@ def _split_rule(text: str) -> tuple[str, str] | None:
 
 def _split_when_rule(text: str) -> tuple[str, str] | None:
     clean = strip_terminal_punctuation(text)
-    match = re.match(r"^(when|whenever|provided\s+that|assuming\s+that|in\s+case)\s+(.+?),\s*(.+)$", clean, flags=re.I)
+    match = re.match(
+        r"^(when|whenever|provided\s+that|assuming\s+that|in\s+case)\s+(.+?),\s*(.+)$",
+        clean,
+        flags=re.I,
+    )
+    if match:
+        return _clean_part(match.group(2)), _clean_part(match.group(3))
+
+    match = re.match(
+        r"^(when|whenever|provided\s+that|assuming\s+that|in\s+case)\s+(.+?)\s+(.+)$",
+        clean,
+        flags=re.I,
+    )
     if match:
         return _clean_part(match.group(2)), _clean_part(match.group(3))
     return None
 
 
 def _split_formula_connector(text: str) -> tuple[str, str] | None:
-    direct = DEFAULT_REGISTRY.split_non_if(text)
-    if direct:
-        antecedent, consequent, conn = direct
-        if conn.entry.consequent_negation:
-            consequent = f"not {consequent}"
-        return antecedent, consequent
-
-    connector = DEFAULT_REGISTRY.find("FORMULA_CONNECTOR", text)
-    if connector:
-        return _clean_part(text[: connector.start]), _clean_part(text[connector.end :])
+    for connector in ("implies", "requires", "depends on", *NON_IF_CONNECTORS):
+        match = re.match(rf"^(.+?)\s+{re.escape(connector)}\s+(.+)$", text, flags=re.I)
+        if match:
+            consequent = _clean_part(match.group(2))
+            if connector in {"causes loss of", "causes revocation of", "causes removal of"}:
+                consequent = f"{connector.removeprefix('causes ')} {consequent}"
+            if connector in NEGATIVE_CONNECTORS:
+                consequent = f"not {consequent}"
+            return _clean_part(match.group(1)), consequent
     return None
 
 
@@ -491,11 +601,18 @@ def _strip_exists_cue(text: str) -> str:
 
 
 def _starts_existential(text: str) -> bool:
-    return bool(re.match(r"^(some|at\s+least\s+one|there\s+exists|there\s+is|one\s+or\s+more|a\s+certain|someone)\b", text, flags=re.I))
+    return bool(
+        re.match(
+            r"^(some|at\s+least\s+one|there\s+exists|there\s+is|one\s+or\s+more|"
+            r"a\s+certain|someone)\b",
+            text,
+            flags=re.I,
+        )
+    )
 
 
 def _starts_universal(text: str) -> bool:
-    return bool(re.match(r"^(all|every|each|any|everyone|everybody)\b", text, flags=re.I))
+    return bool(re.match(r"^(all|every|each|any|everyone)\b", text, flags=re.I))
 
 
 def _indefinite_subject(subject: str) -> str:
@@ -523,11 +640,20 @@ def _leaf(text: str, variable: str) -> FormulaSkeleton:
     return FormulaSkeleton(type="leaf", text=_clean_part(text), variable=variable)
 
 
-def _quantified_implies(variable: str, antecedent: FormulaSkeleton, consequent: FormulaSkeleton) -> FormulaSkeleton:
+def _quantified_implies(
+    variable: str,
+    antecedent: FormulaSkeleton,
+    consequent: FormulaSkeleton,
+) -> FormulaSkeleton:
     return FormulaSkeleton(
         type="forall",
         variable=variable,
-        children=[FormulaSkeleton(type="implies", children=[antecedent, consequent])],
+        children=[
+            FormulaSkeleton(
+                type="implies",
+                children=[antecedent, consequent],
+            )
+        ],
     )
 
 
@@ -560,12 +686,16 @@ def _base_skeleton(
         confidence=match.confidence,
         needs_review=needs_review or match.kind == "UNKNOWN",
         notes=list(match.notes),
-        matched_rule=match.matched_rule,
-        matched_evidence=_matched_evidence_model(match.matched_evidence),
     )
 
 
-def _unknown_skeleton(premise_id: str, original: str, match: OperatorMatch, flag: str, note: str) -> LogicSkeleton:
+def _unknown_skeleton(
+    premise_id: str,
+    original: str,
+    match: OperatorMatch,
+    flag: str,
+    note: str,
+) -> LogicSkeleton:
     risk_flags = _append_unique(list(match.risk_flags), flag)
     if "needs_review" not in risk_flags:
         risk_flags.append("needs_review")
@@ -578,15 +708,7 @@ def _unknown_skeleton(premise_id: str, original: str, match: OperatorMatch, flag
         confidence=min(match.confidence, 0.4),
         needs_review=True,
         notes=_append_unique(list(match.notes), note),
-        matched_rule=match.matched_rule,
-        matched_evidence=_matched_evidence_model(match.matched_evidence),
     )
-
-
-def _matched_evidence_model(value: dict[str, Any] | None) -> MatchedEvidence | None:
-    if not value:
-        return None
-    return MatchedEvidence.model_validate(value)
 
 
 def _append_unique(values: list[str], value: str) -> list[str]:
@@ -620,8 +742,28 @@ def _subject_predicate(subject: str, verb: str, rest: str) -> str:
 
 def _third_person_singular_verb(verb: str) -> str:
     lower = verb.lower()
-    irregular = {"are": "is", "were": "was", "have": "has", "do": "does"}
-    stable = {"is", "was", "has", "does", "did", "can", "could", "may", "might", "must", "shall", "should", "will", "would"}
+    irregular = {
+        "are": "is",
+        "were": "was",
+        "have": "has",
+        "do": "does",
+    }
+    stable = {
+        "is",
+        "was",
+        "has",
+        "does",
+        "did",
+        "can",
+        "could",
+        "may",
+        "might",
+        "must",
+        "shall",
+        "should",
+        "will",
+        "would",
+    }
     if lower in irregular:
         replacement = irregular[lower]
     elif lower in stable:

@@ -79,7 +79,7 @@ def test_tracing_llm_writes_prompt_and_response():
         shutil.rmtree(workdir, ignore_errors=True)
 
 
-def test_parse_row_counts_structural_review_in_readiness():
+def test_parse_row_counts_meta_resolution_separately_from_review():
     premise = (
         "If there exists at least one student who is attending tutorials, "
         "then (if a student is not asking questions, they are not attending tutorials)."
@@ -94,11 +94,11 @@ def test_parse_row_counts_structural_review_in_readiness():
         known_predicates=[],
     )
 
-    assert output["counts"]["needs_review_skeletons"] == 1
+    assert output["counts"]["needs_review_skeletons"] == 0
     assert output["counts"]["needs_review_atomization_results"] == 0
-    assert output["counts"]["needs_review_results"] >= 1
-    assert output["readiness"]["needs_review"] is True
-    assert "skeleton_needs_review" in output["readiness"]["reasons"]
+    assert output["readiness"]["needs_meta_resolution"] is True
+    assert "meta_requires_resolution" in output["readiness"]["reasons"]
+    assert "skeleton_needs_review" not in output["readiness"]["reasons"]
 
 
 def _workspace_tmp_dir() -> Path:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Stage 2: generic logical-operator router.
+"""Stage 1: generic logical-operator router.
 
 The router chooses a skeleton kind and records evidence. It does not split text
 into final predicates and it does not produce AST/solver output.
@@ -49,7 +49,7 @@ VERB_BOUNDARY_RE = re.compile(
 )
 COPULAR_OR_HAVE_RE = re.compile(r"\b(is|are|was|were|has|have|had)\b", re.IGNORECASE)
 PAST_TENSE_OR_EVENT_RE = re.compile(
-    r"\b([A-Za-z]+ed|sent|paid|won|lost|made|gave|took|went|came|met|ran|ate|read|wrote|saw|left|kept)\b",
+    r"\b([A-Za-z]+ed|earns?|teaches?|guides?|sent|paid|won|lost|made|gave|took|went|came|met|ran|ate|read|wrote|saw|left|kept|sat)\b",
     re.IGNORECASE,
 )
 
@@ -108,7 +108,7 @@ def classify_operator(text: str) -> OperatorMatch:
     if non_if:
         return _from_connector("NON_IF_RULE", non_if)
 
-    obligation = DEFAULT_REGISTRY.find("OBLIGATION_RULE", normalized)
+    obligation = None if _is_logical_must_have(normalized) else DEFAULT_REGISTRY.find("OBLIGATION_RULE", normalized)
     if obligation:
         return _from_connector("OBLIGATION_RULE", obligation, flags=[_deontic_flag(normalized, obligation.cue)])
 
@@ -199,7 +199,7 @@ def _is_existential(text: str) -> bool:
 def _is_universal(text: str) -> bool:
     if not FORALL_START_RE.search(text):
         return False
-    if DEFAULT_REGISTRY.find("OBLIGATION_RULE", text):
+    if DEFAULT_REGISTRY.find("OBLIGATION_RULE", text) and not _is_logical_must_have(text):
         return False
     if _has_conditional_cue(text):
         return False
@@ -224,6 +224,10 @@ def _is_rule(text: str) -> bool:
     return _has_relative_clause_condition(text)
 
 
+def _is_logical_must_have(text: str) -> bool:
+    return bool(re.search(r"\bmust\s+(have|be|satisfy|meet)\b", text, flags=re.I))
+
+
 def _has_conditional_cue(text: str) -> bool:
     lower = text.lower()
     if lower.startswith(("if ", "when ", "whenever ", "provided that ", "assuming that ", "in case ")):
@@ -232,9 +236,27 @@ def _has_conditional_cue(text: str) -> bool:
 
 
 def _has_relative_clause_condition(text: str) -> bool:
+    """Detect relative-clause conditions that signal a RULE-like structure.
+
+    We require the relative pronoun or preposition to be followed by at least
+    one condition word and then a verb boundary.  This mirrors the structural
+    pattern used by ``split_relative_clause_rule`` and avoids false positives
+    on simple prepositional phrases like "Laura met John with Sarah".
+    """
     lower = text.lower()
-    if re.search(r"\b(who|that|which|whose|with|without)\b", lower):
+    # who/that/which/whose + at-least-one-word condition + verb boundary
+    if re.search(
+        r"\b(who|that|which|whose)\s+\S+.*?\b(" + VERB_BOUNDARY_RE.pattern.strip(r"\b()") + r")\b",
+        lower,
+    ):
         return True
+    # with/without + at-least-one-word condition + verb boundary
+    if re.search(
+        r"\b(with|without)\s+\S+.*?\b(" + VERB_BOUNDARY_RE.pattern.strip(r"\b()") + r")\b",
+        lower,
+    ):
+        return True
+    # Bare plural participial condition: "Models trained with data achieve accuracy"
     return bool(re.search(r"^[a-z][a-z-]*s\s+(trained|given|having|receiving|using|requiring|lacking|failing)\b", lower))
 
 
@@ -293,6 +315,13 @@ def _fact_evidence(text: str) -> dict[str, Any] | None:
         if verb_idx is not None:
             span = words[verb_idx]
             return _simple_evidence("fact.definite_specific_event_assertion", text, text.find(span), text.find(span) + len(span), 0.72)
+
+    # Indefinite simple assertion: A teacher guides students.
+    if words[0].lower() in {"a", "an"}:
+        verb_idx = _first_event_index(words, start=1, max_index=6)
+        if verb_idx is not None:
+            span = words[verb_idx]
+            return _simple_evidence("fact.indefinite_simple_assertion", text, text.find(span), text.find(span) + len(span), 0.68)
 
     return None
 

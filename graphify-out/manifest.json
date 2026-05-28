@@ -1,0 +1,277 @@
+{
+  "C:\\Users\\hi\\Desktop\\Praser\\run.py": {
+    "mtime": 1779901046.2542806,
+    "ast_hash": "4fa9cf21b6547108e641402edaf0e3e4",
+    "semantic_hash": "4fa9cf21b6547108e641402edaf0e3e4"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\artifacts\\stage12_20260527_121631\\summary.json": {
+    "mtime": 1779859199.3243906,
+    "ast_hash": "12158dae6d0d4ad2096d7c8104ded198",
+    "semantic_hash": "12158dae6d0d4ad2096d7c8104ded198"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\artifacts\\stage12_20260527_123002\\summary.json": {
+    "mtime": 1779860687.2098727,
+    "ast_hash": "e2fe05d7f520485920b2973041fb76ae",
+    "semantic_hash": "e2fe05d7f520485920b2973041fb76ae"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\artifacts\\stage12_20260527_132148\\summary.json": {
+    "mtime": 1779864286.3549478,
+    "ast_hash": "4fc9bdc465fc533c924e63afbded1e59",
+    "semantic_hash": "4fc9bdc465fc533c924e63afbded1e59"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\artifacts\\stage12_20260527_235905\\summary.json": {
+    "mtime": 1779906556.7466266,
+    "ast_hash": "3fb25de7626d168b10b47910f3f33173",
+    "semantic_hash": "3fb25de7626d168b10b47910f3f33173"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\artifacts\\stage12_20260528_050737\\summary.json": {
+    "mtime": 1779925407.7987688,
+    "ast_hash": "bdd155dd20ef307103ddbe12eb07f668",
+    "semantic_hash": "bdd155dd20ef307103ddbe12eb07f668"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\__init__.py": {
+    "mtime": 1779900701.3952584,
+    "ast_hash": "6472c67cdf69721868530a2cb2522c8c",
+    "semantic_hash": "6472c67cdf69721868530a2cb2522c8c"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_1\\connector_registry.py": {
+    "mtime": 1779856411.9050374,
+    "ast_hash": "aa5a5067abf3d1b22bca27e329caa5e9",
+    "semantic_hash": "aa5a5067abf3d1b22bca27e329caa5e9"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_1\\logic_skeleton.py": {
+    "mtime": 1779855694.4336727,
+    "ast_hash": "6c6aa5a1f2a524aac67d31f83542b6b5",
+    "semantic_hash": "6c6aa5a1f2a524aac67d31f83542b6b5"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_1\\operator_router.py": {
+    "mtime": 1779919425.657356,
+    "ast_hash": "0a93a64e82e6d0d8dfaa2c1b48fba221",
+    "semantic_hash": "0a93a64e82e6d0d8dfaa2c1b48fba221"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_1\\skeleton_builder.py": {
+    "mtime": 1779919448.006611,
+    "ast_hash": "d1252f5793558247c9633ad0feef7057",
+    "semantic_hash": "d1252f5793558247c9633ad0feef7057"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_1\\__init__.py": {
+    "mtime": 1779856286.9317603,
+    "ast_hash": "55258035bb79cb38ffea89f60000d500",
+    "semantic_hash": "55258035bb79cb38ffea89f60000d500"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_2\\atomization_requests.py": {
+    "mtime": 1779919322.8922687,
+    "ast_hash": "a02e3a5112cc824256b2e726c7593f02",
+    "semantic_hash": "a02e3a5112cc824256b2e726c7593f02"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_2\\leaf_atomizer.py": {
+    "mtime": 1779900441.6359837,
+    "ast_hash": "bc2789401007c9148d571a0e89b4b352",
+    "semantic_hash": "bc2789401007c9148d571a0e89b4b352"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_2\\local_model_config.py": {
+    "mtime": 1779858250.0596719,
+    "ast_hash": "a670850bbda0efb64dc7290b7058806f",
+    "semantic_hash": "a670850bbda0efb64dc7290b7058806f"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_2\\model_backends.py": {
+    "mtime": 1779858250.0536683,
+    "ast_hash": "210f0d992d8752db33d1cfc6cd199d5f",
+    "semantic_hash": "210f0d992d8752db33d1cfc6cd199d5f"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_2\\predicate_canonicalizer.py": {
+    "mtime": 1779919253.3108773,
+    "ast_hash": "53bff74340b9a21de9116f9e1b27cb90",
+    "semantic_hash": "53bff74340b9a21de9116f9e1b27cb90"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_2\\__init__.py": {
+    "mtime": 1779900711.0964513,
+    "ast_hash": "d8ec31ca41913aa29012ecb975f61dae",
+    "semantic_hash": "d8ec31ca41913aa29012ecb975f61dae"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_5\\ast_builder.py": {
+    "mtime": 1779900581.1633582,
+    "ast_hash": "412a48a903c5a11d66167cbbc93159f8",
+    "semantic_hash": "412a48a903c5a11d66167cbbc93159f8"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_5\\__init__.py": {
+    "mtime": 1779900518.6586218,
+    "ast_hash": "a4b3ad1292569c796b71f68579174804",
+    "semantic_hash": "a4b3ad1292569c796b71f68579174804"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_6\\argument_validator.py": {
+    "mtime": 1779866897.0572085,
+    "ast_hash": "2b30d1a1cfeb5dbcc460fef0042d937e",
+    "semantic_hash": "2b30d1a1cfeb5dbcc460fef0042d937e"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_6\\ast_validator.py": {
+    "mtime": 1779919143.374732,
+    "ast_hash": "631f0d9378077f3898724c16caaa24dd",
+    "semantic_hash": "631f0d9378077f3898724c16caaa24dd"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_6\\issue_codes.py": {
+    "mtime": 1779900592.4958084,
+    "ast_hash": "600c05f8e6eb26b2c4c50128a5f3d285",
+    "semantic_hash": "600c05f8e6eb26b2c4c50128a5f3d285"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_6\\predicate_validator.py": {
+    "mtime": 1779919242.0257547,
+    "ast_hash": "0b2bf44d5a7ebd2867bbf0e73297681c",
+    "semantic_hash": "0b2bf44d5a7ebd2867bbf0e73297681c"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_6\\registry_schema.py": {
+    "mtime": 1779866793.6652925,
+    "ast_hash": "1f511699638becfd75d553f2cb24e199",
+    "semantic_hash": "1f511699638becfd75d553f2cb24e199"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_6\\semantic_validator.py": {
+    "mtime": 1779866872.15708,
+    "ast_hash": "b1a4c421309a3562baf32b172c5096d1",
+    "semantic_hash": "b1a4c421309a3562baf32b172c5096d1"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_6\\solver_readiness.py": {
+    "mtime": 1779900678.7006762,
+    "ast_hash": "f6548bde7c672982f035231aa3a03000",
+    "semantic_hash": "f6548bde7c672982f035231aa3a03000"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_6\\structural_validator.py": {
+    "mtime": 1779865825.3329372,
+    "ast_hash": "03086aad170b039156d82fa9385c4ee8",
+    "semantic_hash": "03086aad170b039156d82fa9385c4ee8"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_6\\validation_models.py": {
+    "mtime": 1779867212.2822506,
+    "ast_hash": "066c1fd91391a2c32f5b9b7e5c4c8045",
+    "semantic_hash": "066c1fd91391a2c32f5b9b7e5c4c8045"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_6\\validator.py": {
+    "mtime": 1779919098.143325,
+    "ast_hash": "cd39dcc45d1449a1d12299fc5a65d0c1",
+    "semantic_hash": "cd39dcc45d1449a1d12299fc5a65d0c1"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_6\\_utils.py": {
+    "mtime": 1779865825.3289366,
+    "ast_hash": "5fc2c3e98f084366282b1ae5dee97a3d",
+    "semantic_hash": "5fc2c3e98f084366282b1ae5dee97a3d"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\Stage_6\\__init__.py": {
+    "mtime": 1779866925.1293423,
+    "ast_hash": "e54fa296f7bea14fb6d43d47bda2c98c",
+    "semantic_hash": "e54fa296f7bea14fb6d43d47bda2c98c"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\tests\\test_ast_builder.py": {
+    "mtime": 1779901094.2015665,
+    "ast_hash": "dcbdd6fcda29cb44bc2fcab8dbdcb40d",
+    "semantic_hash": "dcbdd6fcda29cb44bc2fcab8dbdcb40d"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\tests\\test_atomization_requests.py": {
+    "mtime": 1779919459.9733722,
+    "ast_hash": "0db19234e15ee8345610d5ff58ee334c",
+    "semantic_hash": "0db19234e15ee8345610d5ff58ee334c"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\tests\\test_leaf_atomizer.py": {
+    "mtime": 1779862615.4984565,
+    "ast_hash": "92e6ff4c68534a87a7c1a2ef9851bce1",
+    "semantic_hash": "92e6ff4c68534a87a7c1a2ef9851bce1"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\tests\\test_local_model_backends.py": {
+    "mtime": 1779858274.1375265,
+    "ast_hash": "ef29f23eecbd31361f671248629e2d7e",
+    "semantic_hash": "ef29f23eecbd31361f671248629e2d7e"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\tests\\test_predicate_canonicalizer.py": {
+    "mtime": 1779919308.161759,
+    "ast_hash": "96457413726991133ab3178784af0aed",
+    "semantic_hash": "96457413726991133ab3178784af0aed"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\tests\\test_run_script.py": {
+    "mtime": 1779919360.7769113,
+    "ast_hash": "5885145f35acdcc8aaf1c6360260d09c",
+    "semantic_hash": "5885145f35acdcc8aaf1c6360260d09c"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\tests\\test_skeleton_builder.py": {
+    "mtime": 1779630177.4794865,
+    "ast_hash": "abae1e8481138d54c404c1f9bdc81e40",
+    "semantic_hash": "abae1e8481138d54c404c1f9bdc81e40"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\tests\\test_stage6_validator.py": {
+    "mtime": 1779919292.7675805,
+    "ast_hash": "9615d614bfb078e7e1ee3de8a4c91902",
+    "semantic_hash": "9615d614bfb078e7e1ee3de8a4c91902"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\tests\\test_unseen_registry_cases.py": {
+    "mtime": 1779851292.9778879,
+    "ast_hash": "a28e2b38793f46e247813a739b74b87b",
+    "semantic_hash": "a28e2b38793f46e247813a739b74b87b"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\NEW_logic_pipeline\\tests\\_test_rel_clause.py": {
+    "mtime": 1779900805.9344852,
+    "ast_hash": "1b07f5e87f11f88fd64f5af836d00125",
+    "semantic_hash": "1b07f5e87f11f88fd64f5af836d00125"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\haha.md": {
+    "mtime": 1779422597.5330718,
+    "ast_hash": "3d9a09fc14fb62c9d19bec181e9ca78b",
+    "semantic_hash": "3d9a09fc14fb62c9d19bec181e9ca78b"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\improvement.md": {
+    "mtime": 1779460679.1371694,
+    "ast_hash": "e488f83d0e136a14750899bbb769842c",
+    "semantic_hash": "e488f83d0e136a14750899bbb769842c"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\neurosymbolic_logic_parser_full_implementation_guide.md": {
+    "mtime": 1779614793.1689868,
+    "ast_hash": "32d1c335fe132ecdd26e35f4cec9ade2",
+    "semantic_hash": "32d1c335fe132ecdd26e35f4cec9ade2"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\next.md": {
+    "mtime": 1779613865.4517336,
+    "ast_hash": "7af1d2be30bcccf57be90be1c2f04c47",
+    "semantic_hash": "7af1d2be30bcccf57be90be1c2f04c47"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\README.md": {
+    "mtime": 1779418161.1202083,
+    "ast_hash": "27e846df0698536d7d05be5a2a6dcd6f",
+    "semantic_hash": "27e846df0698536d7d05be5a2a6dcd6f"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\requirements.txt": {
+    "mtime": 1779431161.1388474,
+    "ast_hash": "2f0f95390b1e548bf9e381196d0be94f",
+    "semantic_hash": "2f0f95390b1e548bf9e381196d0be94f"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\stage6.md": {
+    "mtime": 1779865367.1495576,
+    "ast_hash": "f8b337346002274f65c19dbb3c234709",
+    "semantic_hash": "f8b337346002274f65c19dbb3c234709"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\summary_new_pipeline_implementation.md": {
+    "mtime": 1779620711.9416895,
+    "ast_hash": "904de4c3b3bb8d01567b11ce877b408d",
+    "semantic_hash": "904de4c3b3bb8d01567b11ce877b408d"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\walkthrough.md": {
+    "mtime": 1779614787.9473882,
+    "ast_hash": "fbaf8360a35d01834510f372f95a2402",
+    "semantic_hash": "fbaf8360a35d01834510f372f95a2402"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\configs\\registries\\education_registry.yaml": {
+    "mtime": 1779867044.6452677,
+    "ast_hash": "c955d4c988d011a05272df0acd025764",
+    "semantic_hash": "c955d4c988d011a05272df0acd025764"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\configs\\registries\\general_logic_registry.yaml": {
+    "mtime": 1779867057.6732676,
+    "ast_hash": "951ff11ade99972f716c7fa8e3919b98",
+    "semantic_hash": "951ff11ade99972f716c7fa8e3919b98"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\configs\\semantic_policies\\default_policy.yaml": {
+    "mtime": 1779867063.2103808,
+    "ast_hash": "fdc1e00798e5b7ebe6d4e6254d426560",
+    "semantic_hash": "fdc1e00798e5b7ebe6d4e6254d426560"
+  },
+  "C:\\Users\\hi\\Desktop\\Praser\\configs\\semantic_policies\\education_policy.yaml": {
+    "mtime": 1779867068.8085942,
+    "ast_hash": "fdc1e00798e5b7ebe6d4e6254d426560",
+    "semantic_hash": "fdc1e00798e5b7ebe6d4e6254d426560"
+  }
+}

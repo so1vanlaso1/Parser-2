@@ -20,6 +20,7 @@ from NEW_logic_pipeline.Stage_2.predicate_canonicalizer import (
     DEFAULT_KNOWN_PREDICATES,
     canonicalize_atomization_results,
 )
+from NEW_logic_pipeline.Stage_5.ast_builder import build_asts
 from NEW_logic_pipeline.Stage_6.registry_schema import load_registry_config
 from NEW_logic_pipeline.Stage_6.validation_models import SemanticPolicy
 from NEW_logic_pipeline.Stage_6.validator import Stage6Validator
@@ -308,6 +309,7 @@ def parse_row(
     requests = collect_batch_atomization_requests(skeletons, known_predicates=effective_known_predicates)
     raw_results = atomize_requests(requests, llm)
     results, canonicalization_summary = canonicalize_atomization_results(raw_results)
+    asts = build_asts(skeletons, results)
 
     needs_review_atomization_count = sum(1 for result in results if result.needs_review)
     needs_review_skeleton_count = sum(1 for skeleton in skeletons if skeleton.needs_review)
@@ -347,6 +349,7 @@ def parse_row(
         "skeletons": [skeleton.model_dump(mode="json") for skeleton in skeletons],
         "atomization_requests": [request.model_dump(mode="json") for request in requests],
         "atomization_results": [result.model_dump(mode="json") for result in results],
+        "asts": [ast.model_dump(mode="json") for ast in asts],
         "canonicalization": canonicalization_summary,
         "counts": {
             "premises": len(premises),

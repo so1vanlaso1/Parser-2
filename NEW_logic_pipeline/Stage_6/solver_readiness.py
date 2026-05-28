@@ -41,6 +41,7 @@ def classify_solver_readiness(
         for skeleton in get_value(parsed_record, "skeletons", []) or []
     )
     has_cardinality = any_atom_requires_lowering(parsed_record, registry or {})
+    has_unsupported = ast_contains(parsed_record, "UNSUPPORTED")
     unsupported_results = atomization_unsupported_results(parsed_record)
 
     unsupported = bool(unsupported_results)
@@ -80,6 +81,19 @@ def classify_solver_readiness(
             )
         )
         needs_review = True
+
+    if has_unsupported:
+        needs_review = True
+        unsupported = True
+        reasons.append("unsupported_ast_node")
+        readiness_issues.append(
+            ValidationIssue(
+                code=C.READY_UNSUPPORTED_LOGIC,
+                severity="error",
+                message="AST contains UNSUPPORTED node(s) that cannot be sent to solver.",
+                suggested_stage="Stage 5 or Stage 7",
+            )
+        )
 
     if has_meta and not solver_capabilities.get("supports_meta", False):
         needs_meta_resolution = True

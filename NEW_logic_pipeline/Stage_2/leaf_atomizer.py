@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Stage 5: LLM leaf atomizer.
+"""Stage 3: LLM leaf atomizer.
 
 Input: AtomizationRequest.
 Output: AtomizationResult with flat PredicateAtom objects only.
@@ -22,7 +22,7 @@ except Exception:  # pragma: no cover
 
 
 VALID_PREDICATE_RE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
-VALID_ARGUMENT_RE = re.compile(r"^(?:[a-z][a-z0-9_]*|[0-9]+)$")
+VALID_ARGUMENT_RE = re.compile(r"^(?:[a-z][a-z0-9_]*|[0-9]+(?:\.[0-9]+)?)$")
 VARIABLE_NAMES = {"u", "v", "w", "x", "y", "z"}
 ENCODED_NEGATION_PREFIXES = ("not_", "non_", "no_")
 MODAL_OR_DEONTIC_HINTS = {
@@ -49,6 +49,7 @@ def build_atomizer_prompt(request: AtomizationRequest) -> str:
         "logical_cues": request.logical_cues,
         "required_domain_atoms": request.required_domain_atoms,
         "source_mentions": request.source_mentions,
+        "resolved_references": request.resolved_references,
         "skeleton_kind": request.skeleton_kind,
         "formula_path": request.formula_path,
     }
@@ -87,6 +88,14 @@ Rules:
 12. Do not add information not present in the phrase.
 13. Preserve every required_domain_atom unless it is explicitly added elsewhere.
 14. Add evidence_links using source_mentions ids for atoms that represent those mentions.
+15. For named FACT phrases, use the named constant, not x.
+16. Preserve numeric values as arguments, including decimals.
+17. Credits are not grades; use credits_per_semester(person, credit_count) for "credits per semester".
+18. GPA values must be preserved: has_gpa(person, gpa_value).
+19. Preserve stated course, subject, test, form, waiver, project, and requirement objects as arguments when the predicate signature needs an object.
+20. Do not infer student(nam) or other domain/class atoms unless explicitly stated in the phrase or required_domain_atoms.
+21. Do not create predicate names containing it, this, that, or them.
+22. If a pronoun reference is unresolved, return needs_review true with empty atoms and unsupported_reason like "unresolved_pronoun_it".
 
 Negation hint rule:
 - negation_hint means classical negation supplied by the skeleton.
@@ -139,6 +148,29 @@ Output:
   "notes": []
 }}
 
+Input phrase: Nam earns 15 credits per semester
+Output:
+{{
+  "atoms": [
+    {{"name": "credits_per_semester", "arguments": ["nam", "15"], "negated": false, "evidence_links": ["m1", "m2"], "confidence": 0.95}}
+  ],
+  "needs_review": false,
+  "unsupported_reason": null,
+  "notes": []
+}}
+
+Input phrase: Nam failed Operating Systems, a core course
+Output:
+{{
+  "atoms": [
+    {{"name": "failed_subject", "arguments": ["nam", "operating_systems"], "negated": false, "confidence": 0.95}},
+    {{"name": "core_course", "arguments": ["operating_systems"], "negated": false, "confidence": 0.95}}
+  ],
+  "needs_review": false,
+  "unsupported_reason": null,
+  "notes": []
+}}
+
 Input phrase: Every smart home device is not necessarily energy efficient
 Output:
 {{
@@ -171,6 +203,48 @@ Output:
 """
 
 
+def sanitize_raw_atom_payload(item: dict) -> dict:
+    """Normalize an LLM-returned atom dict before Pydantic validation.
+
+    The LLM sometimes returns ``evidence_links`` as a list of dicts
+    (e.g. ``[{"id": "m1", ...}]``) instead of the expected ``list[str]``.
+    It may also return arguments as dicts.  This helper coerces the payload
+    so that ``PredicateAtom.model_validate`` succeeds.
+    """
+    item = dict(item)
+
+    # --- evidence_links: list[dict] → list[str] ---
+    links = item.get("evidence_links", [])
+    fixed_links: list[str] = []
+    if isinstance(links, list):
+        for link in links:
+            if isinstance(link, str):
+                fixed_links.append(link)
+            elif isinstance(link, dict):
+                # Accept any reasonable identifier field
+                for key in ("id", "ID", "mention_id", "link_id"):
+                    if key in link:
+                        fixed_links.append(str(link[key]))
+                        break
+                else:
+                    # Last resort: stringify the whole dict
+                    fixed_links.append(str(link))
+    item["evidence_links"] = fixed_links
+
+    # --- arguments: ensure each element is a plain value ---
+    args = item.get("arguments", [])
+    if isinstance(args, list):
+        fixed_args = []
+        for arg in args:
+            if isinstance(arg, dict) and "value" in arg:
+                fixed_args.append(arg["value"])
+            else:
+                fixed_args.append(arg)
+        item["arguments"] = fixed_args
+
+    return item
+
+
 def parse_atomizer_response(raw_text: Any, request: AtomizationRequest) -> AtomizationResult:
     raw = _response_to_text(raw_text)
     json_text = _extract_json_object(raw)
@@ -189,7 +263,10 @@ def parse_atomizer_response(raw_text: Any, request: AtomizationRequest) -> Atomi
             atoms_payload = []
         if not isinstance(atoms_payload, list):
             raise TypeError("atoms must be a list")
-        atoms = [PredicateAtom.model_validate(item) for item in atoms_payload]
+        atoms = [
+            PredicateAtom.model_validate(sanitize_raw_atom_payload(item))
+            for item in atoms_payload
+        ]
     except (TypeError, ValidationError) as exc:
         return _invalid_result(request, "invalid_atomizer_schema", [f"Atomizer atom schema validation failed: {exc}"])
 
@@ -205,6 +282,7 @@ def parse_atomizer_response(raw_text: Any, request: AtomizationRequest) -> Atomi
         variable=request.variable,
         atoms=atoms,
         source_mentions=list(request.source_mentions),
+        resolved_references=dict(request.resolved_references),
         domain_restriction_added_elsewhere=bool(payload.get("domain_restriction_added_elsewhere", False)),
         needs_review=bool(payload.get("needs_review", False)),
         unsupported_reason=_none_if_empty(payload.get("unsupported_reason")),
@@ -255,13 +333,13 @@ def validate_atomization_result(result: AtomizationResult) -> AtomizationResult:
         for arg in atom.arguments:
             if isinstance(arg, dict):
                 normalized = dict(arg)
-                normalized["value"] = _to_snake_case(str(normalized.get("value", "")))
+                normalized["value"] = _normalize_argument_text(str(normalized.get("value", "")))
                 if not VALID_ARGUMENT_RE.fullmatch(normalized["value"]):
                     needs_review = True
                     notes.append(f"invalid argument {arg!r} for atom {atom.name!r}.")
                 normalized_args.append(normalized)
             else:
-                norm_arg = _to_snake_case(str(arg))
+                norm_arg = _normalize_argument_text(str(arg))
                 if not VALID_ARGUMENT_RE.fullmatch(norm_arg):
                     needs_review = True
                     notes.append(f"invalid argument {arg!r} for atom {atom.name!r}.")
@@ -303,7 +381,123 @@ def atomize_request(request: AtomizationRequest, llm: Any) -> AtomizationResult:
 
 
 def atomize_requests(requests: list[AtomizationRequest], llm: Any) -> list[AtomizationResult]:
-    return [atomize_request(request, llm) for request in requests]
+    """Atomize a batch of requests, using a phrase consistency cache.
+
+    If the same normalized phrase has already been successfully atomized in this
+    batch, the cached atoms are reused (with variable substitution) instead of
+    calling the LLM again.  This ensures semantic consistency across premises.
+    """
+    cache = PhraseConsistencyCache()
+    results: list[AtomizationResult] = []
+    for request in requests:
+        cached = cache.lookup(request)
+        if cached is not None:
+            results.append(cached)
+        else:
+            result = atomize_request(request, llm)
+            cache.store(request, result)
+            results.append(result)
+    return results
+
+
+class PhraseConsistencyCache:
+    """General phrase normalization cache for atomization consistency.
+
+    Normalizes phrases using purely linguistic rules (stripping articles,
+    copulae, pronouns, whitespace) — no domain-specific logic.  When two
+    requests share the same normalized key, the atoms from the first successful
+    result are reused with variable substitution.
+    """
+
+    def __init__(self) -> None:
+        self._cache: dict[str, AtomizationResult] = {}
+
+    @staticmethod
+    def _normalize_phrase(phrase: str) -> str:
+        """Produce a canonical key from a phrase using general linguistic rules."""
+        text = re.sub(r"\s+", " ", phrase.strip()).lower()
+        # Strip leading articles and pronouns (general English, not domain words)
+        text = re.sub(
+            r"^(a|an|the|this|that|these|those|some|any|each|every|all)\s+",
+            "",
+            text,
+        )
+        # Strip leading copulae / auxiliary verbs + subject pronouns
+        text = re.sub(
+            r"^(he|she|it|they|we|you|one)\s+",
+            "",
+            text,
+        )
+        text = re.sub(
+            r"^(is|are|was|were|has|have|had|does|do|did)\s+",
+            "",
+            text,
+        )
+        # Strip "not" marker for keying — negation is tracked separately
+        text = re.sub(r"^not\s+", "", text)
+        # Collapse remaining whitespace
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
+    @classmethod
+    def _cache_key(cls, request: AtomizationRequest) -> str:
+        phrase_key = cls._normalize_phrase(request.phrase)
+        explicit_negation = _explicit_classical_negation(request.phrase)
+        role = str(request.role or "")
+        skeleton_kind = str(request.skeleton_kind or "")
+        return "|".join(
+            [
+                phrase_key,
+                f"negation_hint={bool(request.negation_hint)}",
+                f"explicit_negation={explicit_negation}",
+                f"role={role}",
+                f"skeleton_kind={skeleton_kind}",
+            ]
+        )
+
+    def lookup(self, request: AtomizationRequest) -> AtomizationResult | None:
+        """Return a cached result with variables substituted, or None."""
+        key = self._cache_key(request)
+        if not key or key not in self._cache:
+            return None
+        cached = self._cache[key]
+        if cached.needs_review or cached.unsupported_reason:
+            return None
+        if not cached.atoms:
+            return None
+        # Clone and substitute variable
+        result = cached.model_copy(deep=True)
+        result.request_id = request.request_id
+        result.premise_id = request.premise_id
+        result.role = request.role
+        result.phrase = request.phrase
+        result.variable = request.variable
+        result.formula_path = list(request.formula_path)
+        result.source_mentions = list(request.source_mentions)
+        result.notes = [*result.notes, f"reused cached atoms for normalized phrase: {key!r}"]
+        # Substitute cached variable → request variable
+        old_var = cached.variable
+        new_var = request.variable
+        if old_var != new_var:
+            for atom in result.atoms:
+                atom.arguments = [
+                    new_var if (isinstance(arg, str) and arg == old_var) else arg
+                    for arg in atom.arguments
+                ]
+                atom.source_phrase = request.phrase
+        return result
+
+    def store(self, request: AtomizationRequest, result: AtomizationResult) -> None:
+        """Cache a successful atomization result."""
+        key = self._cache_key(request)
+        if not key:
+            return
+        if result.needs_review or result.unsupported_reason:
+            return
+        if not result.atoms:
+            return
+        if key not in self._cache:
+            self._cache[key] = result
 
 
 def _apply_request_level_checks(result: AtomizationResult, request: AtomizationRequest) -> AtomizationResult:
@@ -410,6 +604,7 @@ def _invalid_result(request: AtomizationRequest, reason: str, notes: list[str] |
         variable=request.variable,
         atoms=[],
         source_mentions=list(request.source_mentions),
+        resolved_references=dict(request.resolved_references),
         needs_review=True,
         unsupported_reason=reason,
         notes=notes or [],
@@ -445,9 +640,28 @@ def _to_snake_case(value: str) -> str:
     return text.lower()
 
 
+def _normalize_argument_text(value: str) -> str:
+    text = str(value or "").strip()
+    if re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", text):
+        return text
+    return _to_snake_case(text)
+
+
 def _has_encoded_negation(value: str) -> bool:
     lowered = value.lower()
     return any(lowered.startswith(prefix) for prefix in ENCODED_NEGATION_PREFIXES)
+
+
+def _explicit_classical_negation(text: str) -> bool:
+    lower = re.sub(r"\s+", " ", str(text or "").lower()).strip()
+    if "not necessarily" in lower:
+        return False
+    return bool(
+        re.search(
+            r"\b(no|not|never|without|cannot|can't|does\s+not|do\s+not|did\s+not|has\s+not|have\s+not|had\s+not|is\s+not|are\s+not|was\s+not|were\s+not)\b",
+            lower,
+        )
+    )
 
 
 def _normalize_hint(value: Any) -> str:

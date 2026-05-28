@@ -2,6 +2,7 @@ from NEW_logic_pipeline.Stage_2.atomization_requests import AtomizationRequest
 from NEW_logic_pipeline.Stage_2.leaf_atomizer import (
     atomize_request,
     atomize_requests,
+    build_atomizer_prompt,
     parse_atomizer_response,
 )
 
@@ -184,3 +185,31 @@ def test_atomizer_rejects_formula_like_meta_leaf_without_llm_call():
     assert result.needs_review is True
     assert result.unsupported_reason == "formula_like_leaf_requires_recursive_parse"
     assert result.atoms == []
+
+
+def test_phrase_cache_key_keeps_negation_separate():
+    requests = [
+        _request(request_id="P1_body", role="body", phrase="has completed the registration form", negation_hint=False),
+        _request(request_id="P2_body", role="body", phrase="has not completed the registration form", negation_hint=True),
+    ]
+    llm = SequenceLLM(
+        [
+            '{"atoms":[{"name":"completed_registration_form","arguments":["x"],"negated":false}],"needs_review":false,"unsupported_reason":null,"notes":[]}',
+            '{"atoms":[{"name":"completed_registration_form","arguments":["x"],"negated":true}],"needs_review":false,"unsupported_reason":null,"notes":[]}',
+        ]
+    )
+
+    results = atomize_requests(requests, llm)
+
+    assert len(results) == 2
+    assert results[0].atoms[0].negated is False
+    assert results[1].atoms[0].negated is True
+
+
+def test_prompt_contains_named_numeric_object_rules():
+    prompt = build_atomizer_prompt(_request(phrase="Nam has a GPA of 3.2", role="body"))
+
+    assert "For named FACT phrases, use the named constant, not x" in prompt
+    assert "Credits are not grades" in prompt
+    assert "GPA values must be preserved" in prompt
+    assert "Do not create predicate names containing it" in prompt

@@ -23,10 +23,12 @@ from .Stage_2.atomization_requests import (
     collect_formula_leaf_requests,
 )
 from .Stage_2.leaf_atomizer import (
+    PhraseConsistencyCache,
     atomize_request,
     atomize_requests,
     build_atomizer_prompt,
     parse_atomizer_response,
+    sanitize_raw_atom_payload,
     validate_atomization_result,
 )
 from .Stage_2.local_model_config import get_local_transformers_config
@@ -36,6 +38,8 @@ from .Stage_2.predicate_canonicalizer import (
     DEFAULT_KNOWN_PREDICATES,
     canonicalize_atomization_results,
 )
+from .Stage_5 import ast_builder as _ast_builder
+from .Stage_5.ast_builder import LogicNode, build_ast, build_asts
 from .Stage_6 import SemanticPolicy, Stage6Validator, ValidationIssue, ValidationReport
 
 # Compatibility aliases for tests and callers that imported Stage 1 modules
@@ -49,6 +53,7 @@ sys.modules.setdefault(__name__ + ".leaf_atomizer", _leaf_atomizer)
 sys.modules.setdefault(__name__ + ".local_model_config", _local_model_config)
 sys.modules.setdefault(__name__ + ".model_backends", _model_backends)
 sys.modules.setdefault(__name__ + ".predicate_canonicalizer", _predicate_canonicalizer)
+sys.modules.setdefault(__name__ + ".ast_builder", _ast_builder)
 
 __all__ = [
     "build_skeleton",
@@ -65,9 +70,11 @@ __all__ = [
     "collect_formula_leaf_requests",
     "build_atomizer_prompt",
     "parse_atomizer_response",
+    "sanitize_raw_atom_payload",
     "validate_atomization_result",
     "atomize_request",
     "atomize_requests",
+    "PhraseConsistencyCache",
     "ModelMode",
     "LocalTransformersConfig",
     "LocalTransformersLLM",
@@ -76,6 +83,9 @@ __all__ = [
     "CANONICAL_PREDICATES",
     "DEFAULT_KNOWN_PREDICATES",
     "canonicalize_atomization_results",
+    "LogicNode",
+    "build_ast",
+    "build_asts",
     "Stage6Validator",
     "SemanticPolicy",
     "ValidationIssue",

@@ -51,6 +51,74 @@ def test_unknown_predicate_rejected():
     assert "PRED_UNKNOWN" in report.summary["issue_codes"]
 
 
+def test_canonicalized_clean_predicate_extends_stage6_registry():
+    parsed = {
+        "skeletons": [],
+        "canonicalization": {
+            "canonical_predicates": ["completed_registration_form"],
+            "predicate_signatures": {
+                "completed_registration_form": {"arity": 1, "roles": ["entity"]}
+            },
+        },
+        "atomization_results": [
+            {
+                "premise_id": "P1",
+                "request_id": "P1_body",
+                "phrase": "has completed the registration form",
+                "atoms": [{"name": "completed_registration_form", "arguments": ["x"], "negated": False}],
+            }
+        ],
+        "asts": [
+            {
+                "type": "ATOM",
+                "predicate": "completed_registration_form",
+                "arguments": ["x"],
+                "premise_id": "P1",
+                "source_text": "has completed the registration form",
+            }
+        ],
+    }
+
+    report = Stage6Validator(predicate_registry=EDUCATION_REGISTRY).validate(parsed)
+
+    assert report.parse_valid
+    assert "PRED_UNKNOWN" not in report.summary["issue_codes"]
+    assert "AST_ATOM_UNKNOWN_PREDICATE" not in report.summary["issue_codes"]
+
+
+def test_phrase_consistency_ignores_bare_domain_plus_property_atoms():
+    parsed = {
+        "skeletons": [],
+        "atomization_results": [],
+        "canonicalization": {},
+        "asts": [
+            {
+                "type": "AND",
+                "children": [
+                    {
+                        "type": "ATOM",
+                        "predicate": "student",
+                        "arguments": ["x"],
+                        "premise_id": "P1",
+                        "source_text": "a student who is attending tutorials",
+                    },
+                    {
+                        "type": "ATOM",
+                        "predicate": "attending_tutorials",
+                        "arguments": ["x"],
+                        "premise_id": "P1",
+                        "source_text": "a student who is attending tutorials",
+                    },
+                ],
+            }
+        ],
+    }
+
+    report = Stage6Validator(predicate_registry=EDUCATION_REGISTRY).validate(parsed)
+
+    assert "AST_INCONSISTENT_PHRASE_MAPPING" not in report.summary["issue_codes"]
+
+
 def test_or_became_and_rejected_from_logical_cue_metadata():
     parsed = {
         "skeletons": [],
@@ -288,6 +356,93 @@ def test_missing_ast_blocks_direct_solver_readiness_without_invalidating_parse()
     assert not report.direct_solver_ready
     assert "AST_MISSING" in report.summary["issue_codes"]
     assert "ast_missing" in report.readiness_reasons
+
+
+def test_negation_dropped_is_hard_error():
+    parsed = {
+        "skeletons": [],
+        "atomization_requests": [
+            {
+                "premise_id": "P1",
+                "request_id": "P1_body",
+                "phrase": "has not completed the registration form",
+                "negation_hint": True,
+            }
+        ],
+        "atomization_results": [
+            {
+                "premise_id": "P1",
+                "request_id": "P1_body",
+                "phrase": "has not completed the registration form",
+                "atoms": [{"name": "completed_registration_form", "arguments": ["x"], "negated": False}],
+            }
+        ],
+        "canonicalization": {
+            "canonical_predicates": ["completed_registration_form"],
+            "predicate_signatures": {"completed_registration_form": {"arity": 1, "roles": ["person"]}},
+        },
+    }
+
+    report = Stage6Validator(predicate_registry=EDUCATION_REGISTRY).validate(parsed)
+
+    assert not report.parse_valid
+    assert "NEGATION_DROPPED" in report.summary["issue_codes"]
+
+
+def test_unresolved_pronoun_predicate_rejected():
+    parsed = {
+        "skeletons": [],
+        "atomization_results": [
+            {
+                "premise_id": "P1",
+                "request_id": "P1_body",
+                "phrase": "Nam has not retaken it yet",
+                "atoms": [{"name": "retaken_it", "arguments": ["nam"], "negated": True}],
+            }
+        ],
+        "canonicalization": {
+            "canonical_predicates": ["retaken_it"],
+            "predicate_signatures": {"retaken_it": {"arity": 1, "roles": ["person"]}},
+        },
+    }
+
+    report = Stage6Validator(predicate_registry={}).validate(parsed)
+
+    assert not report.parse_valid
+    assert "UNRESOLVED_PRONOUN_IN_PREDICATE" in report.summary["issue_codes"]
+
+
+def test_object_and_numeric_dropped_are_hard_errors():
+    parsed = {
+        "skeletons": [],
+        "atomization_requests": [
+            {
+                "premise_id": "P1",
+                "request_id": "P1_body",
+                "phrase": "Nam has a GPA of 3.2",
+                "source_mentions": [
+                    {"id": "m1", "semantic_role": "object_type", "canonical": "gpa"},
+                    {"id": "m2", "semantic_role": "quantity", "canonical": "3.2"},
+                ],
+            }
+        ],
+        "atomization_results": [
+            {
+                "premise_id": "P1",
+                "request_id": "P1_body",
+                "phrase": "Nam has a GPA of 3.2",
+                "atoms": [{"name": "has_gpa", "arguments": ["nam"], "negated": False}],
+            }
+        ],
+        "canonicalization": {
+            "canonical_predicates": ["has_gpa"],
+            "predicate_signatures": {"has_gpa": {"arity": 2, "roles": ["person", "gpa_value"]}},
+        },
+    }
+
+    report = Stage6Validator(predicate_registry=EDUCATION_REGISTRY).validate(parsed)
+
+    assert "NUMERIC_VALUE_DROPPED" in report.summary["issue_codes"]
 
 
 def test_stage6_code_does_not_embed_education_domain_words():

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Stage 3: build LogicSkeleton / FormulaSkeleton from operator matches.
+"""Stage 1: build LogicSkeleton / FormulaSkeleton from operator matches.
 
 This module preserves logical text spans only. It never creates predicate atoms,
 AST nodes, solver exports, or final answers.
@@ -119,7 +119,7 @@ def build_skeleton(premise_id: str, text: str) -> LogicSkeleton:
     if match.kind == "META":
         try:
             formula_tree = build_meta_formula_tree(clean)
-            return _base_skeleton(premise_id, original, match, formula_tree=formula_tree, needs_review=True)
+            return _base_skeleton(premise_id, original, match, formula_tree=formula_tree, needs_review=False)
         except Exception as exc:  # pragma: no cover
             skeleton = _base_skeleton(premise_id, original, match, body=_span("body", clean), needs_review=True)
             skeleton.risk_flags = _append_unique(skeleton.risk_flags, "meta_parse_failed")
@@ -130,7 +130,20 @@ def build_skeleton(premise_id: str, text: str) -> LogicSkeleton:
 
 
 def build_skeletons(premises: list[str]) -> list[LogicSkeleton]:
-    return [build_skeleton(f"P{idx}", premise) for idx, premise in enumerate(premises, start=1)]
+    skeletons: list[LogicSkeleton] = []
+    for idx, premise in enumerate(premises, start=1):
+        premise_id = f"P{idx}"
+        split_parts = split_safe_compound_fact(premise)
+        if len(split_parts) > 1:
+            built_parts = [
+                build_skeleton(f"{premise_id}{chr(ord('a') + part_index)}", part)
+                for part_index, part in enumerate(split_parts)
+            ]
+            if all(part.kind != "UNKNOWN" for part in built_parts):
+                skeletons.extend(built_parts)
+                continue
+        skeletons.append(build_skeleton(premise_id, premise))
+    return skeletons
 
 
 def normalize_whitespace(text: str) -> str:
@@ -141,12 +154,67 @@ def strip_terminal_punctuation(text: str) -> str:
     return normalize_whitespace(text).rstrip(" \t\r\n.!?")
 
 
+def split_safe_compound_fact(text: str) -> list[str]:
+    clean = strip_terminal_punctuation(text)
+    if not clean or _has_compound_split_blocker(clean):
+        return [clean]
+
+    parts = [
+        _clean_part(part)
+        for part in re.split(r"\s*,?\s+and\s+", clean, flags=re.I)
+        if _clean_part(part)
+    ]
+    if len(parts) < 2:
+        return [clean]
+
+    subject = _leading_subject_for_compound(parts[0])
+    normalized_parts = [parts[0]]
+    for part in parts[1:]:
+        if subject and _starts_with_predicate_continuation(part):
+            normalized_parts.append(f"{subject} {part}")
+        else:
+            normalized_parts.append(part)
+    return normalized_parts
+
+
 def split_if_then(text: str) -> tuple[str, str] | None:
     clean = strip_terminal_punctuation(text)
     match = re.match(r"^if\s+(.+?)\s*,?\s*then\s+(.+)$", clean, flags=re.I)
     if not match:
         return None
     return _clean_part(match.group(1)), _clean_part(match.group(2))
+
+
+def _has_compound_split_blocker(text: str) -> bool:
+    lower = text.lower()
+    return bool(
+        lower.startswith(("if ", "when ", "whenever ", "provided that ", "assuming that ", "in case "))
+        or " only if " in lower
+        or " if and only if " in lower
+        or " or " in lower
+    )
+
+
+def _leading_subject_for_compound(text: str) -> str | None:
+    words = normalize_whitespace(text).split()
+    if not words:
+        return None
+    if words[0].lower() in {"a", "an", "the"} and len(words) >= 2:
+        return " ".join(words[:2])
+    first = words[0].strip(" ,.;:()")
+    if first and (first[0].isupper() or re.match(r"^[A-Z]{2,}[0-9]*$", first)):
+        return first
+    return None
+
+
+def _starts_with_predicate_continuation(text: str) -> bool:
+    return bool(
+        re.match(
+            r"^(is|are|was|were|has|have|had|does|do|did|can|could|may|might|must|shall|should|will|would|earns?|teaches?|guides?)\b",
+            normalize_whitespace(text),
+            flags=re.I,
+        )
+    )
 
 
 def split_if_comma(text: str) -> tuple[str, str] | None:
@@ -336,19 +404,19 @@ def split_relative_clause_rule(text: str) -> tuple[str, str] | None:
 
     # Noun phrase who/that/which CONDITION MAIN_VERB REST
     match = re.match(
-        r"^(?P<subject>.+?)\s+(?P<rel>who|that|which|whose)\s+(?P<condition>.+?)\s+(?P<verb>" + "|".join(re.escape(v) for v in VERB_BOUNDARIES) + r")\s+(?P<rest>.+)$",
+        r"^(?P<subject>.+?)\s+(?P<rel>who|that|which|whose)\s+(?P<condition>.+?)\s+(?P<verb>" + "|".join(re.escape(v) for v in VERB_BOUNDARIES) + r")(?:\s+(?P<rest>.+))?$",
         clean,
         flags=re.I,
     )
     if match:
         subject = singularize_subject(match.group("subject"))
         antecedent = f"{_indefinite_subject(subject)} {_normalize_relative_condition(match.group('condition'))}"
-        consequent = _subject_predicate(subject, match.group("verb"), match.group("rest"))
+        consequent = _subject_predicate(subject, match.group("verb"), match.group("rest") or "")
         return _clean_part(antecedent), _clean_part(consequent)
 
     # Noun phrase with/without CONDITION MAIN_VERB REST
     match = re.match(
-        r"^(?P<subject>.+?)\s+(?P<rel>with|without)\s+(?P<condition>.+?)\s+(?P<verb>" + "|".join(re.escape(v) for v in VERB_BOUNDARIES) + r")\s+(?P<rest>.+)$",
+        r"^(?P<subject>.+?)\s+(?P<rel>with|without)\s+(?P<condition>.+?)\s+(?P<verb>" + "|".join(re.escape(v) for v in VERB_BOUNDARIES) + r")(?:\s+(?P<rest>.+))?$",
         clean,
         flags=re.I,
     )
@@ -361,19 +429,19 @@ def split_relative_clause_rule(text: str) -> tuple[str, str] | None:
         else:
             condition = f"with {condition}"
         antecedent = f"{_indefinite_subject(subject)} {condition}"
-        consequent = _subject_predicate(subject, match.group("verb"), match.group("rest"))
+        consequent = _subject_predicate(subject, match.group("verb"), match.group("rest") or "")
         return _clean_part(antecedent), _clean_part(consequent)
 
     # Bare plural participial condition: Models trained with data achieve accuracy.
     match = re.match(
-        r"^(?P<subject>[A-Za-z][A-Za-z-]*s|people|children|men|women)\s+(?P<condition>(?:trained|given|having|receiving|using|requiring|lacking|failing)\b.+?)\s+(?P<verb>" + "|".join(re.escape(v) for v in VERB_BOUNDARIES) + r")\s+(?P<rest>.+)$",
+        r"^(?P<subject>[A-Za-z][A-Za-z-]*s|people|children|men|women)\s+(?P<condition>(?:trained|given|having|receiving|using|requiring|lacking|failing)\b.+?)\s+(?P<verb>" + "|".join(re.escape(v) for v in VERB_BOUNDARIES) + r")(?:\s+(?P<rest>.+))?$",
         clean,
         flags=re.I,
     )
     if match:
         subject = singularize_subject(match.group("subject"))
         antecedent = f"{_indefinite_subject(subject)} {_normalize_relative_condition(match.group('condition'))}"
-        consequent = _subject_predicate(subject, match.group("verb"), match.group("rest"))
+        consequent = _subject_predicate(subject, match.group("verb"), match.group("rest") or "")
         return _clean_part(antecedent), _clean_part(consequent)
 
     return None
@@ -612,6 +680,7 @@ __all__ = [
     "build_skeletons",
     "normalize_whitespace",
     "strip_terminal_punctuation",
+    "split_safe_compound_fact",
     "split_if_then",
     "split_if_comma",
     "split_a_if_b",

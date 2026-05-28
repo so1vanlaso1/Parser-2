@@ -1,0 +1,125 @@
+{
+  "started_at": "2026-05-28T05:07:59",
+  "input": "fixed_smoke_logic_406.jsonl",
+  "artifacts_dir": "artifacts\\stage12_20260528_050737",
+  "model_config": {
+    "mode": "qwen_hf_4bit",
+    "minicpm_model_id": "openbmb/MiniCPM5-1B",
+    "qwen_model_path": "D:\\Exact logic parser\\models\\Qwen3.5-4B",
+    "max_new_tokens": 512,
+    "temperature": 0.0,
+    "top_p": 0.95,
+    "device_map": "auto",
+    "torch_dtype": "auto"
+  },
+  "row_count": 10,
+  "rows": [
+    {
+      "row_number": 1,
+      "id": "logic-0226-q1",
+      "premise_count": 7,
+      "skeleton_count": 7,
+      "request_count": 14,
+      "result_count": 14,
+      "needs_review_count": 0,
+      "duration_seconds": 268.335
+    },
+    {
+      "row_number": 2,
+      "id": "logic-0359-q1",
+      "premise_count": 10,
+      "skeleton_count": 10,
+      "request_count": 18,
+      "result_count": 18,
+      "needs_review_count": 0,
+      "duration_seconds": 631.637
+    },
+    {
+      "row_number": 3,
+      "id": "logic-0152-q1",
+      "premise_count": 20,
+      "skeleton_count": 20,
+      "request_count": 49,
+      "result_count": 49,
+      "needs_review_count": 23,
+      "duration_seconds": 1273.63
+    },
+    {
+      "row_number": 4,
+      "id": "logic-0318-q1",
+      "premise_count": 15,
+      "skeleton_count": 15,
+      "request_count": 29,
+      "result_count": 29,
+      "needs_review_count": 0,
+      "duration_seconds": 786.598
+    },
+    {
+      "row_number": 5,
+      "id": "logic-0244-q1",
+      "premise_count": 4,
+      "skeleton_count": 4,
+      "request_count": 8,
+      "result_count": 8,
+      "needs_review_count": 0,
+      "duration_seconds": 252.667
+    },
+    {
+      "row_number": 6,
+      "id": "logic-0015-q1",
+      "premise_count": 4,
+      "skeleton_count": 4,
+      "request_count": 4,
+      "result_count": 4,
+      "needs_review_count": 0,
+      "duration_seconds": 121.769
+    },
+    {
+      "row_number": 7,
+      "id": "logic-0243-q1",
+      "premise_count": 4,
+      "skeleton_count": 4,
+      "request_count": 8,
+      "result_count": 8,
+      "needs_review_count": 0,
+      "duration_seconds": 194.566
+    },
+    {
+      "row_number": 8,
+      "id": "logic-0373-q0",
+      "premise_count": 13,
+      "skeleton_count": 20,
+      "request_count": 29,
+      "result_count": 29,
+      "needs_review_count": 16,
+      "duration_seconds": 1057.397
+    },
+    {
+      "row_number": 9,
+      "id": "logic-0016-q0",
+      "premise_count": 8,
+      "skeleton_count": 8,
+      "request_count": 12,
+      "result_count": 12,
+      "needs_review_count": 0,
+      "duration_seconds": 424.745
+    },
+    {
+      "row_number": 10,
+      "id": "logic-0358-q0",
+      "premise_count": 11,
+      "skeleton_count": 13,
+      "request_count": 19,
+      "result_count": 19,
+      "needs_review_count": 9,
+      "duration_seconds": 717.117
+    }
+  ],
+  "finished_at": "2026-05-28T06:43:27",
+  "llm_call_count": 167,
+  "outputs": {
+    "results_jsonl": "artifacts\\stage12_20260528_050737\\results.jsonl",
+    "summary_json": "artifacts\\stage12_20260528_050737\\summary.json",
+    "llm_io_jsonl": "artifacts\\stage12_20260528_050737\\llm_io.jsonl"
+  }
+}

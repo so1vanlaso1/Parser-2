@@ -10,10 +10,12 @@ from .atomization_requests import (
     collect_formula_leaf_requests,
 )
 from .leaf_atomizer import (
+    PhraseConsistencyCache,
     atomize_request,
     atomize_requests,
     build_atomizer_prompt,
     parse_atomizer_response,
+    sanitize_raw_atom_payload,
     validate_atomization_result,
 )
 from .local_model_config import get_local_transformers_config
@@ -28,9 +30,11 @@ __all__ = [
     "collect_formula_leaf_requests",
     "build_atomizer_prompt",
     "parse_atomizer_response",
+    "sanitize_raw_atom_payload",
     "validate_atomization_result",
     "atomize_request",
     "atomize_requests",
+    "PhraseConsistencyCache",
     "ModelMode",
     "LocalTransformersConfig",
     "LocalTransformersLLM",

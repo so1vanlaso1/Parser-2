@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .argument_validator import validate_argument_roles
 from .ast_validator import validate_asts
+from .predicate_validator import build_effective_registry
 from .predicate_validator import validate_predicates
 from .registry_schema import normalize_registry_config
 from .semantic_validator import validate_semantics
@@ -33,21 +34,22 @@ class Stage6Validator:
 
     def validate(self, parsed_record: dict) -> ValidationReport:
         issues = []
+        effective_registry = build_effective_registry(parsed_record, self.predicate_registry)
 
         issues.extend(validate_skeletons(parsed_record))
         issues.extend(
             validate_predicates(
                 parsed_record,
-                self.predicate_registry,
+                effective_registry,
                 allow_dynamic_predicates=self.semantic_policy.allowed_dynamic_predicates,
             )
         )
-        issues.extend(validate_argument_roles(parsed_record, self.predicate_registry))
-        issues.extend(validate_semantics(parsed_record, self.predicate_registry, self.semantic_policy))
+        issues.extend(validate_argument_roles(parsed_record, effective_registry))
+        issues.extend(validate_semantics(parsed_record, effective_registry, self.semantic_policy))
         issues.extend(
             validate_asts(
                 parsed_record,
-                self.predicate_registry,
+                effective_registry,
                 allow_dynamic_predicates=self.semantic_policy.allowed_dynamic_predicates,
             )
         )
@@ -56,7 +58,7 @@ class Stage6Validator:
             parsed_record=parsed_record,
             issues=issues,
             solver_capabilities=self.solver_capabilities,
-            registry=self.predicate_registry,
+            registry=effective_registry,
         )
         issues.extend(readiness["issues"])
 

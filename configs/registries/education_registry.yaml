@@ -3,12 +3,14 @@
     "student": {
       "arity": 1,
       "roles": ["person"],
-      "solver_safe": true
+      "solver_safe": true,
+      "domain_atom": true
     },
     "subject": {
       "arity": 1,
       "roles": ["subject"],
-      "solver_safe": true
+      "solver_safe": true,
+      "domain_atom": true
     },
     "ask_questions": {
       "arity": 1,
@@ -81,6 +83,46 @@
       "roles": ["person", "grade_group", "count"],
       "solver_safe": false,
       "requires_lowering": true
+    },
+    "has_gpa": {
+      "arity": 2,
+      "roles": ["person", "gpa_value"],
+      "solver_safe": true
+    },
+    "credits_per_semester": {
+      "arity": 2,
+      "roles": ["person", "credit_count"],
+      "solver_safe": true
+    },
+    "failed_subject": {
+      "arity": 2,
+      "roles": ["person", "subject"],
+      "solver_safe": true
+    },
+    "retaken_subject": {
+      "arity": 2,
+      "roles": ["person", "subject"],
+      "solver_safe": true
+    },
+    "completed_registration_form": {
+      "arity": 1,
+      "roles": ["person"],
+      "solver_safe": true
+    },
+    "signed_liability_waiver": {
+      "arity": 1,
+      "roles": ["person"],
+      "solver_safe": true
+    },
+    "eligible": {
+      "arity": 1,
+      "roles": ["person"],
+      "solver_safe": true
+    },
+    "core_course": {
+      "arity": 1,
+      "roles": ["subject"],
+      "solver_safe": true
     },
     "receive_scholarship": {
       "arity": 1,
